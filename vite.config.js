@@ -20,6 +20,9 @@ export default defineConfig({
           react: 'React',
           'react-dom': 'ReactDOM',
         },
+        // Força a exposição no window
+        format: 'iife',
+        name: 'BloqueioWidget'
       },
     },
   },
