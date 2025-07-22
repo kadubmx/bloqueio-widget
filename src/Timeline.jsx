@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 const SLOT = 15;
-const DAY_MIN = 16 * 60; // 16h no total (6h às 22h)
+const DAY_MIN = 16 * 60; // 6h às 22h
 
 export default function Timeline({
   bookings,
@@ -11,10 +11,18 @@ export default function Timeline({
   onAdd,
   onSelect,
 }) {
-  const fallbackStart = new Date();
-  fallbackStart.setHours(6, 0, 0, 0);
+  // dia base SEMPRE às 6h
+  const getDayStart = () => {
+    const base = new Date(active?.start || Date.now());
+    base.setHours(6, 0, 0, 0);
+    return base;
+  };
 
-  const dayStart = new Date(active?.start || fallbackStart);
+  const [dayStart, setDayStart] = useState(getDayStart());
+
+  useEffect(() => {
+    setDayStart(getDayStart());
+  }, [active]);
 
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
