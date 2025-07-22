@@ -1,8 +1,8 @@
+/* src/Timeline.jsx */
 import React, { useState, useEffect } from "react";
-import moment from "moment";
 
 const SLOT = 15;
-const DAY_MIN = 16 * 60;
+const DAY_MIN = 16 * 60;   // 06‑22
 
 export default function Timeline({
   bookings,
@@ -15,19 +15,13 @@ export default function Timeline({
   const dayStart = new Date(active.start);
   dayStart.setHours(6, 0, 0, 0);
 
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const int = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(int);
-  }, []);
-
   const [sMin, setS] = useState((active.start - dayStart) / 60000);
   const [eMin, setE] = useState((active.end - dayStart) / 60000);
 
   useEffect(() => {
     setS((active.start - dayStart) / 60000);
     setE((active.end - dayStart) / 60000);
-  }, [active, dayStart]);
+  }, [active]);
 
   const pct = (m) => (m / DAY_MIN) * 100;
   const snap = (m) => Math.round(m / SLOT) * SLOT;
@@ -77,6 +71,7 @@ export default function Timeline({
     document.addEventListener("mouseup", up);
   };
 
+  /* free slots */
   const free = [];
   let cur = 0;
   [...bookings, ...blocks]
@@ -100,15 +95,44 @@ export default function Timeline({
       );
   };
 
+  /* ruler labels a cada 4 h */
+  const ruler = ["06h00", "10h00", "14h00", "18h00", "22h00"].map(
+    (label, i) => (
+      <span
+        key={label}
+        className="ruler-label"
+        style={{ left: `${i * 25}%` }}
+      >
+        {label}
+      </span>
+    )
+  );
+
+  /* linha vermelha horário atual */
+  const [nowPct, setNowPct] = useState(null);
+  useEffect(() => {
+    const calc = () => {
+      const now = new Date();
+      if (
+        now >= dayStart &&
+        now <= new Date(dayStart.getTime() + DAY_MIN * 60000)
+      ) {
+        setNowPct(pct((now - dayStart) / 60000));
+      } else {
+        setNowPct(null);
+      }
+    };
+    calc();
+    const t = setInterval(calc, 60000);
+    return () => clearInterval(t);
+  }, [active]);
+
   return (
     <div className="timeline">
-      <div className="ruler">
-        {["06h00", "10h00", "14h00", "18h00", "22h00"].map((label, i) => (
-          <span key={i} className="ruler-label" style={{ left: `${i * 25}%` }}>
-            {label}
-          </span>
-        ))}
-      </div>
+      {ruler}
+      {nowPct !== null && (
+        <div className="now-line" style={{ left: `${nowPct}%` }} />
+      )}
 
       {bookings.map((b) => (
         <div
@@ -128,19 +152,23 @@ export default function Timeline({
       {blocks.map((blk) => (
         <div
           key={blk.id}
-          className={blk.id === active.id ? "segment block active" : "segment block"}
+          className={
+            blk.id === active.id ? "segment block active" : "segment block"
+          }
           style={{
             left: `${pct((blk.start - dayStart) / 60000)}%`,
             width: `${pct((blk.end - blk.start) / 60000)}%`,
-            background: "linear-gradient(to right,#fecaca,#fca5a5)",
-            zIndex: blk.id === active.id ? 2 : 1,
           }}
           onClick={() => onSelect(blk)}
         >
           {blk.id === active.id && (
             <>
-              <div className="handle left" onMouseDown={drag("start")}>⋮</div>
-              <div className="handle right" onMouseDown={drag("end")}>⋮</div>
+              <div className="handle left" onMouseDown={drag("start")}>
+                ⋮
+              </div>
+              <div className="handle right" onMouseDown={drag("end")}>
+                ⋮
+              </div>
             </>
           )}
         </div>
@@ -157,13 +185,6 @@ export default function Timeline({
           onClick={clickFree(f)}
         />
       ))}
-
-      <div
-        className="current-time"
-        style={{
-          left: `${pct((now - dayStart.getTime()) / 60000)}%`,
-        }}
-      />
     </div>
   );
 }
