@@ -8,26 +8,28 @@ export default class App extends Component {
     events: [],
     active: null,
 
-    /* arrays reais */
+    /* arrays que acumulam até você “Salvar” */
     pendingAdds:    [],
     pendingUpdates: [],
     pendingRemoves: [],
 
-    debugData: null, // opcional
+    /* opcional: debug local */
+    debugData: null,
   };
 
-  /* ------------- ciclo de vida ------------- */
+  /* ===== ciclo de vida ===== */
   componentDidMount() {
     this.loadEvents();
   }
 
   componentDidUpdate(prevProps) {
+    // somente se a lista da query mudou
     const before = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
     const after  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
     if (before !== after) this.loadEvents();
   }
 
-  /* ------------- helpers ------------- */
+  /* ===== helpers ===== */
   loadEvents = () => {
     const data =
       this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
@@ -46,17 +48,24 @@ export default class App extends Component {
     this.setState({
       events: parsed,
       active: parsed.find((e) => e.status === "bloqueado") || null,
+
+      // zera filas quando recarrega da base
       pendingAdds:    [],
       pendingUpdates: [],
       pendingRemoves: [],
     });
   };
 
-  /** envia arrays consolidados para Lowcoder */
+  blkPayload = (b) => ({
+    id: b.id,
+    inicio: b.start.toISOString(),
+    fim:    b.end.toISOString(),
+  });
+
+  /** envia adds/updates/removes consolidados */
   syncToModel = () => {
     const { updateModel } = this.props;
     if (!updateModel) return;
-
     const { pendingAdds, pendingUpdates, pendingRemoves } = this.state;
     updateModel({
       bloqueioWidget: {
@@ -67,12 +76,7 @@ export default class App extends Component {
     });
   };
 
-  blkPayload = (blk) => ({
-    id: blk.id,
-    inicio: blk.start.toISOString(),
-    fim:    blk.end.toISOString(),
-  });
-
+  /* ===== callbacks Timeline ===== */
   handleAdd = (start, end) => {
     const novo = {
       id: Date.now(),
@@ -96,24 +100,20 @@ export default class App extends Component {
   handleUpdate = (blk) => {
     this.setState(
       (prev) => {
-        const inAdds = prev.pendingAdds.find((p) => p.id === blk.id);
-        let adds = [...prev.pendingAdds];
-        let updates = [...prev.pendingUpdates];
+        const payload = this.blkPayload(blk);
 
-        if (inAdds) {
-          adds = adds.map((p) =>
-            p.id === blk.id ? this.blkPayload(blk) : p
-          );
-        } else {
-          const existsUpd = updates.find((u) => u.id === blk.id);
-          if (existsUpd) {
-            updates = updates.map((u) =>
-              u.id === blk.id ? this.blkPayload(blk) : u
-            );
-          } else {
-            updates.push(this.blkPayload(blk));
-          }
-        }
+        const inAdds      = prev.pendingAdds.some((p) => p.id === blk.id);
+        const inUpdates   = prev.pendingUpdates.some((u) => u.id === blk.id);
+
+        const adds    = inAdds
+          ? prev.pendingAdds.map((p) => (p.id === blk.id ? payload : p))
+          : prev.pendingAdds;
+
+        const updates = inAdds
+          ? prev.pendingUpdates                // já está em adds, não duplica
+          : inUpdates
+              ? prev.pendingUpdates.map((u) => (u.id === blk.id ? payload : u))
+              : [...prev.pendingUpdates, payload];
 
         return {
           events: prev.events.map((e) =>
@@ -145,6 +145,7 @@ export default class App extends Component {
     );
   };
 
+  /* ===== render ===== */
   render() {
     const { events, active, debugData } = this.state;
 
@@ -162,15 +163,19 @@ export default class App extends Component {
           </>
         )}
 
-        <Timeline
-          bookings={events.filter((e) => e.status !== "bloqueado")}
-          blocks={events.filter((e) => e.status === "bloqueado")}
-          active={active}
-          onChange={this.handleUpdate}
-          onAdd={this.handleAdd}
-          onSelect={this.handleSelect}
-        />
+        {/* Timeline só aparece quando há active para evitar erro start/null */}
+        {active && (
+          <Timeline
+            bookings={events.filter((e) => e.status !== "bloqueado")}
+            blocks={events.filter((e) => e.status === "bloqueado")}
+            active={active}
+            onChange={this.handleUpdate}
+            onAdd={this.handleAdd}
+            onSelect={this.handleSelect}
+          />
+        )}
 
+        {/* debug local opcional */}
         <div style={{ marginTop: 24, fontFamily: "monospace" }}>
           <h3>Debug local</h3>
           <pre style={{ background: "#f3f4f6", padding: 8 }}>
