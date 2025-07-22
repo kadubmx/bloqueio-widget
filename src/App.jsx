@@ -1,21 +1,40 @@
-/* src/App.jsx */
+// src/App.jsx
 import React, { Component } from "react";
 import Timeline from "./Timeline";
 import moment from "moment";
 
 export default class App extends Component {
-  state = { events: [], active: null };
+  constructor(props) {
+    super(props);
+    this.state = {
+      events: [],        // lista atual de eventos + bloqueios
+      active: null,      // bloqueio selecionado
+      debugData: null,   // para exibir localmente
+    };
 
-  /* ---------- UTIL ---------- */
-  pushDebug(obj) {
-    this.props.updateModel?.({ widgetDebug: obj });
+    this.handleUpdate = this.handleUpdate.bind(this);
+    this.handleAdd    = this.handleAdd.bind(this);
+    this.handleSelect = this.handleSelect.bind(this);
   }
 
-  loadEvents = () => {
-    const raw =
+  componentDidMount() {
+    this.loadEvents();
+  }
+
+  componentDidUpdate(prevProps) {
+    // só recarrega se os dados da query mudarem
+    const before = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
+    const after  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
+    if (before !== after) {
+      this.loadEvents();
+    }
+  }
+
+  loadEvents() {
+    const data =
       this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
 
-    const events = raw.map((ev) => ({
+    const parsed = data.map((ev) => ({
       ...ev,
       start:  new Date(ev.inicio),
       end:    new Date(ev.fim),
@@ -24,33 +43,38 @@ export default class App extends Component {
           ? "Bloqueio"
           : ev.nome_paciente || ev.status_agendamento || "Evento",
       status: ev.status_agendamento,
+      situacao: ev.status_agendamento,
+      tipo: ev.tipo_atendimento,
+      badge_bg: ev.badge_bg,
+      badge_texto: ev.badge_texto,
     }));
 
-    this.setState({
-      events,
-      active: events.find((e) => e.status === "bloqueado") || events[0],
-    });
-  };
+    const firstBlock = parsed.find((e) => e.status === "bloqueado") || null;
 
-  /* ---------- CICLO ---------- */
-  componentDidMount()              { this.loadEvents(); }
-  componentDidUpdate(p) {
-    if (
-      p.model?.getAgendaDia?.data !==
-      this.props.model?.getAgendaDia?.data
-    ) {
-      this.loadEvents();
-    }
+    this.setState({
+      events: parsed,
+      active: firstBlock,
+    });
   }
 
-  /* ---------- CALLBACKS ---------- */
-  handleSelect = (blk) => {
-    this.setState({ active: blk }, () =>
-      this.pushDebug({ tipo: "select", id: blk.id })
+  handleUpdate(blk) {
+    this.setState(
+      (prev) => ({
+        events: prev.events.map((e) =>
+          e.id === blk.id ? blk : e
+        ),
+        active: blk,
+        debugData: {
+          origem: "update",
+          id: blk.id,
+          start: blk.start.toISOString(),
+          end: blk.end.toISOString(),
+        },
+      })
     );
-  };
+  }
 
-  handleAdd = (start, end) => {
+  handleAdd(start, end) {
     const novo = {
       id: Date.now(),
       start,
@@ -58,48 +82,67 @@ export default class App extends Component {
       title: "Novo Bloqueio",
       status: "bloqueado",
     };
-    this.setState(
-      (s) => ({ events: [...s.events, novo], active: novo }),
-      () => this.pushDebug({ tipo: "add", id: novo.id })
-    );
-  };
 
-  /*  ⬇️  NÃO envia debug em todo movimento.
-      Só depois que o usuário SOLTAR o bloqueio (mouse‑up)   */
-  handleUpdate = (blk, finished = false) => {
-    this.setState((s) => ({
-      events: s.events.map((e) => (e.id === blk.id ? blk : e)),
-      active: blk,
+    this.setState((prev) => ({
+      events: [...prev.events, novo],
+      active: novo,
+      debugData: {
+        origem: "add",
+        id: novo.id,
+        start: novo.start.toISOString(),
+        end: novo.end.toISOString(),
+      },
     }));
-    if (finished) {
-      this.pushDebug({
-        tipo: "update",
+  }
+
+  handleSelect(blk) {
+    this.setState({
+      active: blk,
+      debugData: {
+        origem: "select",
         id: blk.id,
         start: blk.start.toISOString(),
         end: blk.end.toISOString(),
-      });
-    }
-  };
+      },
+    });
+  }
 
-  /* ---------- RENDER ---------- */
   render() {
-    const { events, active } = this.state;
-    if (!active) return null;
+    const { events, active, debugData } = this.state;
 
     return (
       <div style={{ padding: 20 }}>
         <h1>Bloqueios do Dia</h1>
-        <p>{moment(active.start).format("HH:mm")} – {moment(active.end).format("HH:mm")}</p>
 
-        <Timeline
-          bookings={events.filter((e) => e.status !== "bloqueado")}
-          blocks={events.filter((e) => e.status === "bloqueado")}
-          active={active}
-          onChange={(blk) => this.handleUpdate(blk, false)}
-          onChangeEnd={(blk) => this.handleUpdate(blk, true)}
-          onAdd={this.handleAdd}
-          onSelect={this.handleSelect}
-        />
+        {active && (
+          <>
+            <h3>Editar Bloqueios</h3>
+            <p>
+              {moment(active.start).format("HH:mm")} –{" "}
+              {moment(active.end).format("HH:mm")}
+            </p>
+          </>
+        )}
+
+        {active && (
+          <Timeline
+            bookings={events.filter((e) => e.status !== "bloqueado")}
+            blocks={events.filter((e) => e.status === "bloqueado")}
+            active={active}
+            onChange={this.handleUpdate}
+            onAdd={this.handleAdd}
+            onSelect={this.handleSelect}
+          />
+        )}
+
+        <div style={{ marginTop: 24, fontFamily: "monospace" }}>
+          <h3>🔍 Debug local</h3>
+          <pre style={{ background: "#f3f4f6", padding: 8 }}>
+            {debugData
+              ? JSON.stringify(debugData, null, 2)
+              : "Nenhuma ação executada ainda."}
+          </pre>
+        </div>
       </div>
     );
   }
