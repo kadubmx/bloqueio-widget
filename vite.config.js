@@ -1,26 +1,26 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
   define: {
-    "process.env": {}, // evita erros com "process"
+    'process.env.NODE_ENV': JSON.stringify('production'),
   },
   build: {
     lib: {
-      entry: "./src/main.jsx",
-      name: "BloqueioWidget",
-      fileName: () => `bloqueio-widget.js`,
-      formats: ["iife"],
+      entry: 'src/main.jsx',
+      name: 'BloqueioWidget',
+      formats: ['iife'],
+      fileName: () => 'bloqueio-widget.js',
     },
     rollupOptions: {
+      external: ['react', 'react-dom'],
       output: {
         globals: {
-          react: "React",
-          "react-dom": "ReactDOM",
+          react: 'React',
+          'react-dom': 'ReactDOM',
         },
       },
-      external: ["react", "react-dom"], // garante que usa os do CDN
     },
   },
 });

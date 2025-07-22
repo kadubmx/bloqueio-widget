@@ -1,17 +1,10 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
-import "./index.css";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
 
-function mount(id, props = {}) {
-  const container = document.getElementById(id);
-  if (!container) {
-    console.error(`Elemento com id="${id}" não encontrado`);
-    return;
-  }
-  const root = ReactDOM.createRoot(container);
-  root.render(<App {...props} />);
+const Connected = Lowcoder.connect(App);
+
+export function mount(targetId = 'root') {
+  const root = ReactDOM.createRoot(document.getElementById(targetId));
+  root.render(<Connected />);
 }
-
-// Exporta explicitamente no window
-window.BloqueioWidget = { mount };
