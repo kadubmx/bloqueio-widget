@@ -1,0 +1,188 @@
+import React from "react";
+
+const SLOT = 15;
+const DAY_MIN = 16 * 60;
+
+export default function Timeline({
+  bookings,
+  blocks,
+  active,
+  onChange,
+  onAdd,
+  onSelect,
+}) {
+  const dayStart = new Date(active.start);
+  dayStart.setHours(6, 0, 0, 0);
+
+  const pct = (m) => (m / DAY_MIN) * 100;
+  const snap = (m) => Math.round(m / SLOT) * SLOT;
+
+  const clash = (s, e, ignoreId) =>
+    bookings
+      .concat(blocks.filter((b) => b.id !== ignoreId))
+      .some(
+        (ev) =>
+          s < (ev.end - dayStart) / 60000 &&
+          e > (ev.start - dayStart) / 60000
+      );
+
+  const drag = (edge, blk) => (downEvt) => {
+    downEvt.preventDefault();
+
+    const bar = downEvt.currentTarget.parentNode.parentNode;
+    const move = (mv) => {
+      const { left, width } = bar.getBoundingClientRect();
+      const raw = ((mv.clientX - left) / width) * DAY_MIN;
+      const pos = snap(Math.max(0, Math.min(DAY_MIN, raw)));
+
+      const blkS = (blk.start - dayStart) / 60000;
+      const blkE = (blk.end - dayStart) / 60000;
+
+      if (edge === "start") {
+        const ns = Math.min(pos, blkE - SLOT);
+        if (!clash(ns, blkE, blk.id)) {
+          onChange({ ...blk, start: new Date(dayStart.getTime() + ns * 60000) });
+        }
+      } else {
+        const ne = Math.max(pos, blkS + SLOT);
+        if (!clash(blkS, ne, blk.id)) {
+          onChange({ ...blk, end: new Date(dayStart.getTime() + ne * 60000) });
+        }
+      }
+    };
+
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+    };
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
+
+  const free = [];
+  let cur = 0;
+
+  [...bookings, ...blocks]
+    .sort((a, b) => a.start - b.start)
+    .forEach((ev) => {
+      let s = (ev.start - dayStart) / 60000;
+      let e = (ev.end - dayStart) / 60000;
+
+      s = Math.max(0, Math.min(s, DAY_MIN));
+      e = Math.max(0, Math.min(e, DAY_MIN));
+
+      if (s - cur >= SLOT) free.push({ from: cur, to: s });
+      cur = Math.max(cur, e);
+      cur = Math.min(cur, DAY_MIN);
+    });
+
+  if (DAY_MIN - cur >= SLOT) free.push({ from: cur, to: DAY_MIN });
+
+  const clickFree = (slot) => (e) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const off = ((e.clientX - box.left) / box.width) * (slot.to - slot.from);
+    const minute = snap(slot.from + off);
+    if (!clash(minute, minute + SLOT))
+      onAdd(
+        new Date(dayStart.getTime() + minute * 60000),
+        new Date(dayStart.getTime() + (minute + SLOT) * 60000)
+      );
+  };
+
+  const getBookingBg = (b) => {
+    if (b.situacao === "pendente")
+      return "linear-gradient(135deg,#fef9c3,#fde68a)";
+    if (b.situacao === "confirmado")
+      return "linear-gradient(135deg,#bfdbfe,#93c5fd)";
+    return "linear-gradient(135deg,#e5e7eb,#f3f4f6)";
+  };
+
+  // linha do horário atual
+  const now = new Date();
+  const nowMinutes = (now - dayStart) / 60000;
+  const nowPct = pct(nowMinutes);
+
+  return (
+    <>
+      <div className="ruler">
+        <div className="ruler-segment">06h00 - 10h00</div>
+        <div className="ruler-segment">10h00 - 14h00</div>
+        <div className="ruler-segment">14h00 - 18h00</div>
+        <div className="ruler-segment">18h00 - 22h00</div>
+      </div>
+
+      <div className="timeline">
+        {/* Linha do horário atual */}
+        <div
+          className="ideal-line"
+          style={{
+            left: `${nowPct}%`,
+          }}
+        />
+
+        {/* bookings */}
+        {bookings.map((b) => (
+          <div
+            key={b.id}
+            className="segment busy"
+            style={{
+              left: `${pct((b.start - dayStart) / 60000)}%`,
+              width: `${pct((b.end - b.start) / 60000)}%`,
+              background: getBookingBg(b),
+            }}
+          />
+        ))}
+
+        {/* blocks */}
+        {blocks.map((blk) => (
+          <div
+            key={blk.id}
+            className="segment block"
+            style={{
+              left: `${pct((blk.start - dayStart) / 60000)}%`,
+              width: `${pct((blk.end - blk.start) / 60000)}%`,
+              opacity: blk.id === active.id ? 1 : 0.7,
+              background: `linear-gradient(135deg,#fecaca,#fca5a5)`,
+            }}
+            onClick={() => onSelect(blk)}
+          >
+            {blk.id === active.id && (
+              <>
+                <div
+                  className="handle left"
+                  onMouseDown={drag("start", blk)}
+                >
+                  ⋮
+                </div>
+                <div
+                  className="handle right"
+                  onMouseDown={drag("end", blk)}
+                >
+                  ⋮
+                </div>
+
+                <div className="tooltip">
+                  {`${blk.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${blk.end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+
+        {/* slots livres */}
+        {free.map((f, i) => (
+          <div
+            key={i}
+            className="segment free"
+            style={{
+              left: `${pct(f.from)}%`,
+              width: `${pct(f.to - f.from)}%`,
+            }}
+            onClick={clickFree(f)}
+          />
+        ))}
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,210 @@
+import React, { useEffect, useState } from "react";
+import Timeline from "./Timeline";
+import moment from "moment";
+
+export default function App() {
+  const [events, setEvents] = useState([]);
+  const [active, setActive] = useState(null);
+
+  const [pendingUpdates, setPendingUpdates] = useState([]);
+  const [pendingRemoves, setPendingRemoves] = useState([]);
+  const [pendingAdds, setPendingAdds] = useState([]);
+
+  useEffect(() => {
+    const exampleData = {
+      result: {
+        events: [
+          {
+            id: "6c620c2c-786d-4413-b431-49c11950ce9b",
+            inicio: "2025-07-21T14:00:00",
+            fim: "2025-07-21T14:15:00",
+            status_agendamento: "bloqueado",
+          },
+          {
+            id: "d3f89b94-9b09-42f8-aa39-eae3af7866af",
+            inicio: "2025-07-21T14:15:00",
+            fim: "2025-07-21T14:30:00",
+            nome_paciente: "Pedro Paulo",
+            tipo_atendimento: "Retorno",
+            badge_bg: "#facc15",
+            badge_texto: "#000000",
+            status_agendamento: "pendente",
+          },
+          {
+            id: "4f3fee8d-f519-43f5-a8d2-163c963f7883",
+            inicio: "2025-07-21T14:30:00",
+            fim: "2025-07-21T14:45:00",
+            status_agendamento: "bloqueado",
+          },
+        ],
+      },
+    };
+
+    const parsed = exampleData.result.events.map((ev) => ({
+      ...ev,
+      start: new Date(ev.inicio),
+      end: new Date(ev.fim),
+      title: ev.nome_paciente || ev.status_agendamento || "Evento",
+      status: ev.status_agendamento,
+      situacao: ev.status_agendamento,
+      tipo: ev.tipo_atendimento,
+      badge_bg: ev.badge_bg,
+      badge_texto: ev.badge_texto,
+    }));
+
+    setEvents(parsed);
+
+    const firstBlock =
+      parsed.find((e) => e.status === "bloqueado") ||
+      parsed.find((e) => true);
+    setActive(firstBlock);
+  }, []);
+
+  const handleUpdate = (blk) => {
+    setEvents((prev) =>
+      prev.map((e) => (e.id === blk.id ? blk : e))
+    );
+    setActive(blk);
+
+    setPendingUpdates((prev) => {
+      const exists = prev.find((p) => p.id === blk.id);
+      const data = {
+        id: blk.id,
+        start: blk.start,
+        end: blk.end,
+      };
+      if (exists) {
+        return prev.map((p) => (p.id === blk.id ? data : p));
+      } else {
+        return [...prev, data];
+      }
+    });
+  };
+
+  const handleAdd = (start, end) => {
+    const newBlock = {
+      id: Date.now(),
+      start,
+      end,
+      title: "Novo Bloqueio",
+      status: "bloqueado",
+    };
+    setEvents((prev) => [...prev, newBlock]);
+    setActive(newBlock);
+    setPendingAdds((prev) => [...prev, newBlock]);
+  };
+
+  const handleSelect = (blk) => {
+    setActive(blk);
+  };
+
+  const handleSave = () => {
+    alert(
+      `Salvo!\n\nUpdates:\n${JSON.stringify(
+        pendingUpdates.map(formatBlock),
+        null,
+        2
+      )}\n\nAdds:\n${JSON.stringify(
+        pendingAdds.map(formatBlock),
+        null,
+        2
+      )}\n\nRemoves:\n${JSON.stringify(pendingRemoves, null, 2)}`
+    );
+
+    setPendingAdds([]);
+    setPendingRemoves([]);
+    setPendingUpdates([]);
+  };
+
+  const handleRemove = () => {
+    if (!active) return;
+    setEvents((prev) => prev.filter((e) => e.id !== active.id));
+    setPendingRemoves((prev) => [...prev, active.id]);
+    setActive(null);
+  };
+
+  const handleCancelar = () => {
+    setActive(null);
+  };
+
+  const handleBloquearDiaTodo = () => {
+    if (!active) return;
+
+    const dia = active.start;
+    const inicio = moment(dia)
+      .set({ hour: 6, minute: 0, second: 0, millisecond: 0 })
+      .toDate();
+    const fim = moment(dia)
+      .set({ hour: 22, minute: 0, second: 0, millisecond: 0 })
+      .toDate();
+
+    const novoBloqueio = {
+      id: Date.now(),
+      title: "Bloqueio Dia Todo",
+      start: inicio,
+      end: fim,
+      status: "bloqueado",
+    };
+
+    setEvents((prev) =>
+      prev.filter((e) => e.status !== "bloqueado").concat(novoBloqueio)
+    );
+    setPendingAdds((prev) => [...prev, novoBloqueio]);
+    setActive(novoBloqueio);
+  };
+
+  const formatBlock = (b) => ({
+    id: b.id,
+    start: moment(b.start).utcOffset(-3).format(),
+    end: moment(b.end).utcOffset(-3).format(),
+  });
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Bloqueios do Dia</h1>
+
+      {active && (
+        <>
+          <h3>Editar Bloqueios</h3>
+          <p>
+            {moment(active.start).format("HH:mm")} –{" "}
+            {moment(active.end).format("HH:mm")}
+          </p>
+        </>
+      )}
+
+      {active && (
+        <Timeline
+          bookings={events.filter((e) => e.status !== "bloqueado")}
+          blocks={events.filter((e) => e.status === "bloqueado")}
+          active={active}
+          onChange={handleUpdate}
+          onAdd={handleAdd}
+          onSelect={handleSelect}
+        />
+      )}
+
+      <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={handleSave}>Salvar</button>
+        <button onClick={handleRemove}>Remover</button>
+        <button onClick={handleCancelar}>Cancelar</button>
+        <button onClick={handleBloquearDiaTodo}>Bloquear Dia Todo</button>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <h3>🪄 Alterações pendentes:</h3>
+
+        <pre style={{ background: "#f3f4f6", padding: 10 }}>
+Updates:
+{JSON.stringify(pendingUpdates.map(formatBlock), null, 2)}
+
+Adds:
+{JSON.stringify(pendingAdds.map(formatBlock), null, 2)}
+
+Removes:
+{JSON.stringify(pendingRemoves, null, 2)}
+        </pre>
+      </div>
+    </div>
+  );
+}
