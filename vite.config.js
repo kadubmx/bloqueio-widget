@@ -22,6 +22,11 @@ export default defineConfig({
           react: 'React',
           'react-dom': 'ReactDOM',
         },
+        // Garantir que o widget seja exposto no window
+        extend: true,
+        // Força a criação do namespace no window
+        format: 'iife',
+        name: 'BloqueioWidget'
       },
     },
   },
