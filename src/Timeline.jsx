@@ -1,32 +1,40 @@
 import React, { useState, useEffect } from "react";
 
-const SLOT = 15;
-const DAY_MIN = 16 * 60; // 6h às 22h
+const SLOT    = 15;           // minutos por slot
+const DAY_MIN = 16 * 60;      // 6 h → 22 h  = 960 min
 
 export default function Timeline({
-  bookings,
-  blocks,
+  bookings = [],
+  blocks   = [],
   active,
   onChange,
   onAdd,
   onSelect,
 }) {
-  // dia base SEMPRE às 6h
-  const getDayStart = () => {
-    const base = new Date(active?.start || Date.now());
-    base.setHours(6, 0, 0, 0);
-    return base;
-  };
+  /* ----------------------------------------------------------
+     1. DATA-REFERÊNCIA (diaStart)
+     ---------------------------------------------------------- */
+  // procura o evento mais cedo (caso não haja bloqueio ativo)
+  const allEvents   = [...bookings, ...blocks];
+  const earliestEvt = allEvents.length
+    ? allEvents.reduce(
+        (earliest, ev) => (ev.start < earliest ? ev.start : earliest),
+        allEvents[0].start
+      )
+    : null;
 
-  const [dayStart, setDayStart] = useState(getDayStart());
+  const refDate = active?.start || earliestEvt || Date.now();
 
-  useEffect(() => {
-    setDayStart(getDayStart());
-  }, [active]);
+  // começa sempre às 06:00 desse dia
+  const dayStart = new Date(refDate);
+  dayStart.setHours(6, 0, 0, 0);
 
+  /* ----------------------------------------------------------
+     2. ESTADO LOCAL
+     ---------------------------------------------------------- */
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const int = setInterval(() => setNow(Date.now()), 60000);
+    const int = setInterval(() => setNow(Date.now()), 60_000); // a cada min
     return () => clearInterval(int);
   }, []);
 
@@ -43,7 +51,10 @@ export default function Timeline({
     setE((active.end - dayStart) / 60000);
   }, [active, dayStart]);
 
-  const pct = (m) => (m / DAY_MIN) * 100;
+  /* ----------------------------------------------------------
+     3. HELPERS
+     ---------------------------------------------------------- */
+  const pct  = (m) => (m / DAY_MIN) * 100;       // minutos → %
   const snap = (m) => Math.round(m / SLOT) * SLOT;
 
   const clash = (s, e) =>
@@ -51,7 +62,7 @@ export default function Timeline({
       .concat(blocks.filter((b) => b.id !== active?.id))
       .some(
         (ev) =>
-          s < (ev.end - dayStart) / 60000 &&
+          s < (ev.end   - dayStart) / 60000 &&
           e > (ev.start - dayStart) / 60000
       );
 
@@ -60,17 +71,22 @@ export default function Timeline({
     onChange({
       ...active,
       start: new Date(dayStart.getTime() + ns * 60000),
-      end: new Date(dayStart.getTime() + ne * 60000),
+      end:   new Date(dayStart.getTime() + ne * 60000),
     });
 
+  /* ----------------------------------------------------------
+     4. DRAG-HANDLES (apenas se houver active)
+     ---------------------------------------------------------- */
   const drag = (edge) => (downEvt) => {
-    if (!active) return;
+    if (!active) return;            // segurança
     downEvt.preventDefault();
     const bar = downEvt.currentTarget.parentNode.parentNode;
+
     const move = (mv) => {
       const { left, width } = bar.getBoundingClientRect();
       const raw = ((mv.clientX - left) / width) * DAY_MIN;
       const pos = snap(Math.max(0, Math.min(DAY_MIN, raw)));
+
       if (edge === "start") {
         const ns = Math.min(pos, eMin - SLOT);
         if (!clash(ns, eMin)) {
@@ -93,13 +109,16 @@ export default function Timeline({
     document.addEventListener("mouseup", up);
   };
 
+  /* ----------------------------------------------------------
+     5. FAIXAS LIVRES (free) PARA CRIAR BLOQUEIO
+     ---------------------------------------------------------- */
   const free = [];
   let cur = 0;
-  [...bookings, ...blocks]
+  allEvents
     .sort((a, b) => a.start - b.start)
     .forEach((ev) => {
       const s = (ev.start - dayStart) / 60000;
-      const e = (ev.end - dayStart) / 60000;
+      const e = (ev.end   - dayStart) / 60000;
       if (s - cur >= SLOT) free.push({ from: cur, to: s });
       cur = Math.max(cur, e);
     });
@@ -109,39 +128,37 @@ export default function Timeline({
     const box = e.currentTarget.getBoundingClientRect();
     const off = ((e.clientX - box.left) / box.width) * (slot.to - slot.from);
     const minute = snap(slot.from + off);
-    if (!clash(minute, minute + SLOT))
-      onAdd &&
-        onAdd(
-          new Date(dayStart.getTime() + minute * 60000),
-          new Date(dayStart.getTime() + (minute + SLOT) * 60000)
-        );
+    if (!clash(minute, minute + SLOT) && onAdd)
+      onAdd(
+        new Date(dayStart.getTime() + minute * 60000),
+        new Date(dayStart.getTime() + (minute + SLOT) * 60000)
+      );
   };
 
-  const generateRulerMarks = () => {
-    const marks = [];
-    for (let hour = 6; hour <= 22; hour += 4) {
-      const minutes = (hour - 6) * 60;
-      const percentage = pct(minutes);
-      marks.push({
-        hour,
-        percentage,
-        label: `${hour.toString().padStart(2, "0")}:00`,
-      });
-    }
-    return marks;
-  };
+  /* ----------------------------------------------------------
+     6. RÉGUA (labels a cada 4h)
+     ---------------------------------------------------------- */
+  const rulerMarks = Array.from({ length: 5 }, (_, i) => {
+    const hour = 6 + i * 4;
+    return {
+      hour,
+      percentage: pct((hour - 6) * 60),
+      label: `${hour.toString().padStart(2, "0")}:00`,
+    };
+  });
 
-  const rulerMarks = generateRulerMarks();
-
+  /* ----------------------------------------------------------
+     7. RENDER
+     ---------------------------------------------------------- */
   return (
-    <div style={{ position: "relative", height: "80px", background: "#f9fafb", marginTop: "30px" }}>
+    <div style={{ position: "relative", height: 80, background: "#f9fafb", marginTop: 30 }}>
+      {/* Régua */}
       <div
-        className="ruler"
         style={{
           position: "absolute",
-          top: "-30px",
+          top: -30,
           width: "100%",
-          height: "25px",
+          height: 25,
           borderBottom: "1px solid #e5e7eb",
         }}
       >
@@ -150,10 +167,10 @@ export default function Timeline({
             <div
               style={{
                 position: "absolute",
-                left: "-0.5px",
-                top: "15px",
-                width: "1px",
-                height: "10px",
+                left: -0.5,
+                top: 15,
+                width: 1,
+                height: 10,
                 background: "#6b7280",
               }}
             />
@@ -161,11 +178,11 @@ export default function Timeline({
               style={{
                 position: "absolute",
                 left: "50%",
-                top: "0px",
+                top: 0,
                 transform: "translateX(-50%)",
-                fontSize: "11px",
+                fontSize: 11,
                 color: "#6b7280",
-                fontWeight: "500",
+                fontWeight: 500,
               }}
             >
               {mark.label}
@@ -174,89 +191,87 @@ export default function Timeline({
         ))}
       </div>
 
-      <div
-        className="timeline"
-        style={{ position: "relative", height: "60px", background: "#f9fafb" }}
-      >
+      {/* Linha do tempo */}
+      <div style={{ position: "relative", height: 60, background: "#f9fafb" }}>
+        {/* Agendamentos */}
         {bookings.map((b) => (
           <div
             key={b.id}
-            className="segment busy"
             style={{
-              left: `${pct((b.start - dayStart) / 60000)}%`,
-              width: `${pct((b.end - b.start) / 60000)}%`,
               position: "absolute",
               top: 0,
               bottom: 0,
+              left: `${pct((b.start - dayStart) / 60000)}%`,
+              width: `${pct((b.end   - b.start) / 60000)}%`,
               background:
                 b.status === "pendente"
                   ? "linear-gradient(135deg,#fef9c3,#fde68a)"
                   : "linear-gradient(135deg,#bfdbfe,#93c5fd)",
               border: "1px solid rgba(0,0,0,0.1)",
-              borderRadius: "2px",
+              borderRadius: 2,
             }}
           />
         ))}
 
+        {/* Bloqueios */}
         {blocks.map((blk) => (
           <div
             key={blk.id}
-            className={blk.id === active?.id ? "segment block active" : "segment block"}
             style={{
-              left: `${pct((blk.start - dayStart) / 60000)}%`,
-              width: `${pct((blk.end - blk.start) / 60000)}%`,
               position: "absolute",
               top: 0,
               bottom: 0,
+              left: `${pct((blk.start - dayStart) / 60000)}%`,
+              width: `${pct((blk.end   - blk.start) / 60000)}%`,
               background: "linear-gradient(to right,#fecaca,#fca5a5)",
               border: blk.id === active?.id ? "2px solid #dc2626" : "1px solid rgba(0,0,0,0.1)",
-              borderRadius: "2px",
+              borderRadius: 2,
               cursor: "pointer",
             }}
             onClick={() => onSelect && onSelect(blk)}
           >
             {blk.id === active?.id && (
               <>
+                {/* Handle esquerdo */}
                 <div
-                  className="handle left"
                   onMouseDown={drag("start")}
                   style={{
                     position: "absolute",
-                    left: "-3px",
+                    left: -3,
                     top: "50%",
                     transform: "translateY(-50%)",
                     cursor: "ew-resize",
                     background: "#dc2626",
-                    color: "white",
-                    width: "6px",
-                    height: "20px",
+                    color: "#fff",
+                    width: 6,
+                    height: 20,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "8px",
-                    borderRadius: "2px",
+                    fontSize: 8,
+                    borderRadius: 2,
                   }}
                 >
                   ⋮
                 </div>
+                {/* Handle direito */}
                 <div
-                  className="handle right"
                   onMouseDown={drag("end")}
                   style={{
                     position: "absolute",
-                    right: "-3px",
+                    right: -3,
                     top: "50%",
                     transform: "translateY(-50%)",
                     cursor: "ew-resize",
                     background: "#dc2626",
-                    color: "white",
-                    width: "6px",
-                    height: "20px",
+                    color: "#fff",
+                    width: 6,
+                    height: 20,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "8px",
-                    borderRadius: "2px",
+                    fontSize: 8,
+                    borderRadius: 2,
                   }}
                 >
                   ⋮
@@ -266,52 +281,52 @@ export default function Timeline({
           </div>
         ))}
 
+        {/* Faixas livres */}
         {free.map((f, i) => (
           <div
             key={i}
-            className="segment free"
             style={{
-              left: `${pct(f.from)}%`,
-              width: `${pct(f.to - f.from)}%`,
               position: "absolute",
               top: 0,
               bottom: 0,
+              left: `${pct(f.from)}%`,
+              width: `${pct(f.to - f.from)}%`,
               background: "#a7f3d0",
-              cursor: "pointer",
               opacity: 0.7,
-              borderRadius: "2px",
+              cursor: "pointer",
+              borderRadius: 2,
             }}
             onClick={clickFree(f)}
           />
         ))}
 
+        {/* Linha do horário atual */}
         <div
-          className="current-time"
           style={{
             position: "absolute",
-            top: "-5px",
-            bottom: "-5px",
-            width: "2px",
-            background: "#10b981",
-            zIndex: 10,
+            top: -5,
+            bottom: -5,
+            width: 2,
             left: `${Math.max(
               0,
               Math.min(100, pct((now - dayStart.getTime()) / 60000))
             )}%`,
-            boxShadow: "0 0 4px rgba(16, 185, 129, 0.5)",
+            background: "#10b981",
+            boxShadow: "0 0 4px rgba(16,185,129,0.5)",
+            zIndex: 10,
           }}
         >
           <div
             style={{
               position: "absolute",
-              top: "-3px",
+              top: -3,
               left: "50%",
               transform: "translateX(-50%)",
-              width: "8px",
-              height: "8px",
+              width: 8,
+              height: 8,
               background: "#10b981",
               borderRadius: "50%",
-              border: "2px solid white",
+              border: "2px solid #fff",
               boxShadow: "0 0 4px rgba(0,0,0,0.2)",
             }}
           />
