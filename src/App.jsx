@@ -1,16 +1,33 @@
-import React, { useEffect, useState } from "react";
+import React, { Component } from "react";
 import Timeline from "./Timeline";
 import moment from "moment";
 
-export default function App({ model, updateModel, runQuery }) {
-  const [events, setEvents] = useState([]);
-  const [active, setActive] = useState(null);
-
-  useEffect(() => {
-    console.log("Model recebido:", model); // Debug
+export default class App extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      events: [],
+      active: null
+    };
     
+    this.handleUpdate = this.handleUpdate.bind(this);
+    this.handleAdd = this.handleAdd.bind(this);
+    this.handleSelect = this.handleSelect.bind(this);
+  }
+
+  componentDidMount() {
+    this.updateEvents();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.model?.getAgendaDia?.data !== this.props.model?.getAgendaDia?.data) {
+      this.updateEvents();
+    }
+  }
+
+  updateEvents() {
+    const { model } = this.props;
     const data = model?.getAgendaDia?.data?.[0]?.result?.events || [];
-    console.log("Dados extraídos:", data); // Debug
     
     const parsed = data.map(ev => ({
       ...ev,
@@ -24,21 +41,22 @@ export default function App({ model, updateModel, runQuery }) {
       badge_texto: ev.badge_texto,
     }));
 
-    setEvents(parsed);
+    const firstBlock = parsed.find(e => e.status === "bloqueado") || parsed[0];
+    
+    this.setState({
+      events: parsed,
+      active: firstBlock
+    });
+  }
 
-    const firstBlock =
-      parsed.find(e => e.status === "bloqueado") || parsed[0];
-    setActive(firstBlock);
-  }, [model?.getAgendaDia?.data]);
+  handleUpdate(blk) {
+    this.setState(prevState => ({
+      events: prevState.events.map(e => (e.id === blk.id ? blk : e)),
+      active: blk
+    }));
+  }
 
-  const handleUpdate = blk => {
-    setEvents(prev =>
-      prev.map(e => (e.id === blk.id ? blk : e))
-    );
-    setActive(blk);
-  };
-
-  const handleAdd = (start, end) => {
+  handleAdd(start, end) {
     const newBlock = {
       id: Date.now(),
       start,
@@ -46,38 +64,45 @@ export default function App({ model, updateModel, runQuery }) {
       title: "Novo Bloqueio",
       status: "bloqueado",
     };
-    setEvents(prev => [...prev, newBlock]);
-    setActive(newBlock);
-  };
+    
+    this.setState(prevState => ({
+      events: [...prevState.events, newBlock],
+      active: newBlock
+    }));
+  }
 
-  const handleSelect = blk => {
-    setActive(blk);
-  };
+  handleSelect(blk) {
+    this.setState({ active: blk });
+  }
 
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>Bloqueios do Dia</h1>
+  render() {
+    const { events, active } = this.state;
+    
+    return (
+      <div style={{ padding: 20 }}>
+        <h1>Bloqueios do Dia</h1>
 
-      {active && (
-        <>
-          <h3>Editar Bloqueios</h3>
-          <p>
-            {moment(active.start).format("HH:mm")} –{" "}
-            {moment(active.end).format("HH:mm")}
-          </p>
-        </>
-      )}
+        {active && (
+          <>
+            <h3>Editar Bloqueios</h3>
+            <p>
+              {moment(active.start).format("HH:mm")} –{" "}
+              {moment(active.end).format("HH:mm")}
+            </p>
+          </>
+        )}
 
-      {active && (
-        <Timeline
-          bookings={events.filter(e => e.status !== "bloqueado")}
-          blocks={events.filter(e => e.status === "bloqueado")}
-          active={active}
-          onChange={handleUpdate}
-          onAdd={handleAdd}
-          onSelect={handleSelect}
-        />
-      )}
-    </div>
-  );
+        {active && (
+          <Timeline
+            bookings={events.filter(e => e.status !== "bloqueado")}
+            blocks={events.filter(e => e.status === "bloqueado")}
+            active={active}
+            onChange={this.handleUpdate}
+            onAdd={this.handleAdd}
+            onSelect={this.handleSelect}
+          />
+        )}
+      </div>
+    );
+  }
 }

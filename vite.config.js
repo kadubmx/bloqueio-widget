@@ -14,13 +14,13 @@ export default defineConfig({
       fileName: () => 'bloqueio-widget.js',
     },
     rollupOptions: {
-      // NÃO externalizar React - deixar bundled
-      // external: ['react', 'react-dom'],
+      // Usar React do Lowcoder
+      external: ['react', 'react-dom'],
       output: {
-        // globals: {
-        //   react: 'React',
-        //   'react-dom': 'ReactDOM',
-        // },
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
+        },
         format: 'iife',
         name: 'BloqueioWidget'
       },
