@@ -4,54 +4,31 @@ import Timeline from "./Timeline";
 import moment from "moment";
 
 export default class App extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      events: [],
-      active: null,
+  state = {
+    events: [],
+    active: null,
 
-      /* arrays reais */
-      pendingAdds:    [],
-      pendingUpdates: [],
-      pendingRemoves: [],
+    /* arrays reais */
+    pendingAdds:    [],
+    pendingUpdates: [],
+    pendingRemoves: [],
 
-      /* opcional: debug local */
-      debugData: null,
-    };
+    debugData: null, // opcional
+  };
 
-    this.handleUpdate = this.handleUpdate.bind(this);
-    this.handleAdd    = this.handleAdd.bind(this);
-    this.handleSelect = this.handleSelect.bind(this);
-    this.handleRemove = this.handleRemove.bind(this);
-  }
-
-  /* ========== helpers ========== */
-  pushToModel() {
-    if (this.props.updateModel) {
-      const { pendingAdds, pendingUpdates, pendingRemoves } = this.state;
-      this.props.updateModel({
-        bloqueioWidget: {
-          adds:    pendingAdds,
-          updates: pendingUpdates,
-          removes: pendingRemoves,
-        },
-      });
-    }
-  }
-  /* ============================= */
-
+  /* ------------- ciclo de vida ------------- */
   componentDidMount() {
     this.loadEvents();
   }
 
   componentDidUpdate(prevProps) {
-    /* recarrega só se a lista de eventos da query mudar */
     const before = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
     const after  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
     if (before !== after) this.loadEvents();
   }
 
-  loadEvents() {
+  /* ------------- helpers ------------- */
+  loadEvents = () => {
     const data =
       this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
 
@@ -66,20 +43,39 @@ export default class App extends Component {
       status: ev.status_agendamento,
     }));
 
-    const firstBlock =
-      parsed.find((e) => e.status === "bloqueado") || null;
-
     this.setState({
       events: parsed,
-      active: firstBlock,
+      active: parsed.find((e) => e.status === "bloqueado") || null,
       pendingAdds:    [],
       pendingUpdates: [],
       pendingRemoves: [],
     });
-  }
+  };
 
-  /* ---------- callbacks ---------- */
-  handleAdd(start, end) {
+  /** envia arrays consolidados para Lowcoder */
+  syncToModel = () => {
+    const { updateModel } = this.props;
+    if (!updateModel) return;
+
+    const { pendingAdds, pendingUpdates, pendingRemoves } = this.state;
+    updateModel({
+      bloqueioWidget: {
+        adds:    pendingAdds,
+        updates: pendingUpdates,
+        removes: pendingRemoves,
+      },
+    });
+  };
+
+  /** converte blk->payload (id, inicio, fim) */
+  blkPayload = (blk) => ({
+    id: blk.id,
+    inicio: blk.start.toISOString(),
+    fim:    blk.end.toISOString(),
+  });
+
+  /* ------------- callbacks da Timeline ------------- */
+  handleAdd = (start, end) => {
     const novo = {
       id: Date.now(),
       start,
@@ -92,62 +88,56 @@ export default class App extends Component {
       (prev) => ({
         events: [...prev.events, novo],
         active: novo,
-        pendingAdds: [...prev.pendingAdds, {
-          id: novo.id,
-          inicio: start.toISOString(),
-          fim:    end.toISOString(),
-        }],
+        pendingAdds: [...prev.pendingAdds, this.blkPayload(novo)],
         debugData: { origem: "add", id: novo.id },
       }),
-      () => this.pushToModel()
+      this.syncToModel
     );
-  }
+  };
 
-  handleUpdate(blk) {
+  handleUpdate = (blk) => {
     this.setState(
       (prev) => {
-        const isNew = prev.pendingAdds.some((p) => p.id === blk.id) ||
-                      !prev.events.some((e) => e.id === blk.id && e.status === "bloqueado");
+        // se está em pendingAdds, apenas atualiza a entrada lá
+        const inAdds = prev.pendingAdds.find((p) => p.id === blk.id);
+        let adds = [...prev.pendingAdds];
+        let updates = [...prev.pendingUpdates];
 
-        let pendingAdds    = [...prev.pendingAdds];
-        let pendingUpdates = [...prev.pendingUpdates];
-
-        if (isNew) {
-          /* bloqueio recém‑criado ainda não salvo */
-          pendingAdds = pendingAdds.map((a) =>
-            a.id === blk.id
-              ? { id: blk.id, inicio: blk.start.toISOString(), fim: blk.end.toISOString() }
-              : a
+        if (inAdds) {
+          adds = adds.map((p) =>
+            p.id === blk.id ? this.blkPayload(blk) : p
           );
         } else {
-          /* bloqueio já existente */
-          const exists = pendingUpdates.find((u) => u.id === blk.id);
-          if (exists) {
-            pendingUpdates = pendingUpdates.map((u) =>
-              u.id === blk.id ? { id: blk.id, inicio: blk.start.toISOString(), fim: blk.end.toISOString() } : u
+          const existsUpd = updates.find((u) => u.id === blk.id);
+          if (existsUpd) {
+            updates = updates.map((u) =>
+              u.id === blk.id ? this.blkPayload(blk) : u
             );
           } else {
-            pendingUpdates.push({
-              id: blk.id,
-              inicio: blk.start.toISOString(),
-              fim:    blk.end.toISOString(),
-            });
+            updates.push(this.blkPayload(blk));
           }
         }
 
         return {
-          events: prev.events.map((e) => (e.id === blk.id ? blk : e)),
+          events: prev.events.map((e) =>
+            e.id === blk.id ? blk : e
+          ),
           active: blk,
-          pendingAdds,
-          pendingUpdates,
+          pendingAdds: adds,
+          pendingUpdates: updates,
           debugData: { origem: "update", id: blk.id },
         };
       },
-      () => this.pushToModel()
+      this.syncToModel
     );
-  }
+  };
 
-  handleRemove(blkId) {
+  handleSelect = (blk) => {
+    this.setState({ active: blk });
+  };
+
+  /* remover via botão no BlockModal (se existir) */
+  handleRemove = (blkId) => {
     this.setState(
       (prev) => ({
         events: prev.events.filter((e) => e.id !== blkId),
@@ -155,19 +145,11 @@ export default class App extends Component {
         pendingRemoves: [...prev.pendingRemoves, blkId],
         debugData: { origem: "remove", id: blkId },
       }),
-      () => this.pushToModel()
+      this.syncToModel
     );
-  }
+  };
 
-  handleSelect(blk) {
-    this.setState({
-      active: blk,
-      debugData: { origem: "select", id: blk.id },
-    });
-  }
-  /* -------------------------------- */
-
-  /* ---------- render ---------- */
+  /* ------------- render ------------- */
   render() {
     const { events, active, debugData } = this.state;
 
@@ -185,18 +167,15 @@ export default class App extends Component {
           </>
         )}
 
-        {active && (
-          <Timeline
-            bookings={events.filter((e) => e.status !== "bloqueado")}
-            blocks={events.filter((e) => e.status === "bloqueado")}
-            active={active}
-            onChange={this.handleUpdate}
-            onAdd={this.handleAdd}
-            onSelect={this.handleSelect}
-          />
-        )}
+        <Timeline
+          bookings={events.filter((e) => e.status !== "bloqueado")}
+          blocks={events.filter((e) => e.status === "bloqueado")}
+          active={active}
+          onChange={this.handleUpdate}
+          onAdd={this.handleAdd}
+          onSelect={this.handleSelect}
+        />
 
-        {/* debug local opcional */}
         <div style={{ marginTop: 24, fontFamily: "monospace" }}>
           <h3>Debug local</h3>
           <pre style={{ background: "#f3f4f6", padding: 8 }}>
