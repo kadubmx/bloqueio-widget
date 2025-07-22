@@ -32,6 +32,7 @@ export default class App extends Component {
 }
 
 
+
   componentDidUpdate(prevProps) {
   const beforeRaw = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
   const afterRaw  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
