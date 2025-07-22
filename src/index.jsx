@@ -2,20 +2,20 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Lowcoder expõe window.Lowcoder; usamos o helper de conexão
-const Connected = Lowcoder.connect(App);
+/* Lowcoder.connect só existe *dentro* do Lowcoder.
+   Se estiver testando fora, criamos um mock vazio. */
+const LowcoderGlobal = window.Lowcoder || {
+  connect: (C) => (props) => <C {...props} />,
+};
 
-/**
- * Monta o widget no elemento indicado.
- *  ‑ targetId: id do elemento container (<div id="root"> …)
- *  ‑ props   : { model, updateModel, runQuery }  que o Lowcoder passa
- */
-export function mount(targetId = 'root', props = {}) {
-  const container = document.getElementById(targetId);
-  if (!container) {
-    console.error(`Elemento #${targetId} não encontrado`);
-    return;
-  }
-  const root = ReactDOM.createRoot(container);
-  root.render(<Connected {...props} />);
+const Connected = LowcoderGlobal.connect(App);
+
+/* monta o app no elemento informado */
+function mount(targetId = 'root', props = {}) {
+  const el = document.getElementById(targetId);
+  if (!el) return console.error(`elemento #${targetId} inexistente`);
+  ReactDOM.createRoot(el).render(<Connected {...props} />);
 }
+
+/* 👉 exporta mount como *default*  – é isso que vira window.BloqueioWidget */
+export default { mount };
