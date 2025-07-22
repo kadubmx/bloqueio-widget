@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import moment from "moment";
 
 const SLOT = 15;
 const DAY_MIN = 16 * 60;
@@ -29,14 +28,14 @@ export default function Timeline({
     setE((active.end - dayStart) / 60000);
   }, [active, dayStart]);
 
-  const pct = (m) => (m / DAY_MIN) * 100;
-  const snap = (m) => Math.round(m / SLOT) * SLOT;
+  const pct = m => (m / DAY_MIN) * 100;
+  const snap = m => Math.round(m / SLOT) * SLOT;
 
   const clash = (s, e) =>
     bookings
-      .concat(blocks.filter((b) => b.id !== active.id))
+      .concat(blocks.filter(b => b.id !== active.id))
       .some(
-        (ev) =>
+        ev =>
           s < (ev.end - dayStart) / 60000 &&
           e > (ev.start - dayStart) / 60000
       );
@@ -48,10 +47,10 @@ export default function Timeline({
       end: new Date(dayStart.getTime() + ne * 60000),
     });
 
-  const drag = (edge) => (downEvt) => {
+  const drag = edge => downEvt => {
     downEvt.preventDefault();
     const bar = downEvt.currentTarget.parentNode.parentNode;
-    const move = (mv) => {
+    const move = mv => {
       const { left, width } = bar.getBoundingClientRect();
       const raw = ((mv.clientX - left) / width) * DAY_MIN;
       const pos = snap(Math.max(0, Math.min(DAY_MIN, raw)));
@@ -81,7 +80,7 @@ export default function Timeline({
   let cur = 0;
   [...bookings, ...blocks]
     .sort((a, b) => a.start - b.start)
-    .forEach((ev) => {
+    .forEach(ev => {
       const s = (ev.start - dayStart) / 60000;
       const e = (ev.end - dayStart) / 60000;
       if (s - cur >= SLOT) free.push({ from: cur, to: s });
@@ -89,7 +88,7 @@ export default function Timeline({
     });
   if (DAY_MIN - cur >= SLOT) free.push({ from: cur, to: DAY_MIN });
 
-  const clickFree = (slot) => (e) => {
+  const clickFree = slot => e => {
     const box = e.currentTarget.getBoundingClientRect();
     const off = ((e.clientX - box.left) / box.width) * (slot.to - slot.from);
     const minute = snap(slot.from + off);
@@ -104,13 +103,18 @@ export default function Timeline({
     <div className="timeline">
       <div className="ruler">
         {["06h00", "10h00", "14h00", "18h00", "22h00"].map((label, i) => (
-          <span key={i} className="ruler-label" style={{ left: `${i * 25}%` }}>
+          <span key={i} className="ruler-label" style={{
+            position: "absolute",
+            left: `${i * 25}%`,
+            fontSize: "11px",
+            top: "-18px"
+          }}>
             {label}
           </span>
         ))}
       </div>
 
-      {bookings.map((b) => (
+      {bookings.map(b => (
         <div
           key={b.id}
           className="segment busy"
@@ -120,12 +124,12 @@ export default function Timeline({
             background:
               b.status === "pendente"
                 ? "linear-gradient(135deg,#fef9c3,#fde68a)"
-                : "linear-gradient(135deg,#bfdbfe,#93c5fd)",
+                : "linear-gradient(135deg,#bfdbfe,#93c5fd)"
           }}
         />
       ))}
 
-      {blocks.map((blk) => (
+      {blocks.map(blk => (
         <div
           key={blk.id}
           className={blk.id === active.id ? "segment block active" : "segment block"}
@@ -133,7 +137,7 @@ export default function Timeline({
             left: `${pct((blk.start - dayStart) / 60000)}%`,
             width: `${pct((blk.end - blk.start) / 60000)}%`,
             background: "linear-gradient(to right,#fecaca,#fca5a5)",
-            zIndex: blk.id === active.id ? 2 : 1,
+            zIndex: blk.id === active.id ? 2 : 1
           }}
           onClick={() => onSelect(blk)}
         >
@@ -152,7 +156,7 @@ export default function Timeline({
           className="segment free"
           style={{
             left: `${pct(f.from)}%`,
-            width: `${pct(f.to - f.from)}%`,
+            width: `${pct(f.to - f.from)}%`
           }}
           onClick={clickFree(f)}
         />
@@ -162,6 +166,12 @@ export default function Timeline({
         className="current-time"
         style={{
           left: `${pct((now - dayStart.getTime()) / 60000)}%`,
+          background: "red",
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          width: "2px",
+          zIndex: 10
         }}
       />
     </div>

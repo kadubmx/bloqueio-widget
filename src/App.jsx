@@ -9,7 +9,6 @@ export default class App extends Component {
     pendingAdds: [],
     pendingUpdates: [],
     pendingRemoves: [],
-    debugData: null,
   };
 
   componentDidMount() {
@@ -27,7 +26,7 @@ export default class App extends Component {
 
   componentDidUpdate(prevProps) {
     const beforeRaw = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
-    const afterRaw = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
+    const afterRaw  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
 
     if (JSON.stringify(beforeRaw || []) !== JSON.stringify(afterRaw || [])) {
       this.loadEvents();
@@ -37,27 +36,26 @@ export default class App extends Component {
   loadEvents = () => {
     const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
 
-    const parsed = data.map((ev) => ({
+    const parsed = data.map(ev => ({
       ...ev,
       start: new Date(ev.inicio),
       end: new Date(ev.fim),
-      title:
-        ev.status_agendamento === "bloqueado"
-          ? "Bloqueio"
-          : ev.nome_paciente || ev.status_agendamento || "Evento",
+      title: ev.status_agendamento === "bloqueado"
+        ? "Bloqueio"
+        : ev.nome_paciente || ev.status_agendamento || "Evento",
       status: ev.status_agendamento,
     }));
 
     this.setState({
       events: parsed,
-      active: parsed.find((e) => e.status === "bloqueado") || null,
+      active: parsed.find(e => e.status === "bloqueado") || null,
       pendingAdds: [],
       pendingUpdates: [],
       pendingRemoves: [],
     });
   };
 
-  blkPayload = (b) => ({
+  blkPayload = b => ({
     id: b.id,
     inicio: b.start.toISOString(),
     fim: b.end.toISOString(),
@@ -66,6 +64,7 @@ export default class App extends Component {
   syncToModel = () => {
     const { updateModel } = this.props;
     if (!updateModel) return;
+
     const { pendingAdds, pendingUpdates, pendingRemoves } = this.state;
     updateModel({
       bloqueioWidget: {
@@ -86,64 +85,61 @@ export default class App extends Component {
     };
 
     this.setState(
-      (prev) => ({
+      prev => ({
         events: [...prev.events, novo],
         active: novo,
         pendingAdds: [...prev.pendingAdds, this.blkPayload(novo)],
-        debugData: { origem: "add", id: novo.id },
       }),
       this.syncToModel
     );
   };
 
-  handleUpdate = (blk) => {
+  handleUpdate = blk => {
     this.setState(
-      (prev) => {
+      prev => {
         const payload = this.blkPayload(blk);
 
-        const inAdds = prev.pendingAdds.some((p) => p.id === blk.id);
-        const inUpdates = prev.pendingUpdates.some((u) => u.id === blk.id);
+        const inAdds = prev.pendingAdds.some(p => p.id === blk.id);
+        const inUpdates = prev.pendingUpdates.some(u => u.id === blk.id);
 
         const adds = inAdds
-          ? prev.pendingAdds.map((p) => (p.id === blk.id ? payload : p))
+          ? prev.pendingAdds.map(p => (p.id === blk.id ? payload : p))
           : prev.pendingAdds;
 
         const updates = inAdds
           ? prev.pendingUpdates
           : inUpdates
-          ? prev.pendingUpdates.map((u) => (u.id === blk.id ? payload : u))
+          ? prev.pendingUpdates.map(u => (u.id === blk.id ? payload : u))
           : [...prev.pendingUpdates, payload];
 
         return {
-          events: prev.events.map((e) => (e.id === blk.id ? blk : e)),
+          events: prev.events.map(e => (e.id === blk.id ? blk : e)),
           active: blk,
           pendingAdds: adds,
           pendingUpdates: updates,
-          debugData: { origem: "update", id: blk.id },
         };
       },
       this.syncToModel
     );
   };
 
-  handleSelect = (blk) => {
+  handleSelect = blk => {
     this.setState({ active: blk });
   };
 
-  handleRemove = (blkId) => {
+  handleRemove = blkId => {
     this.setState(
-      (prev) => ({
-        events: prev.events.filter((e) => e.id !== blkId),
+      prev => ({
+        events: prev.events.filter(e => e.id !== blkId),
         active: null,
         pendingRemoves: [...prev.pendingRemoves, blkId],
-        debugData: { origem: "remove", id: blkId },
       }),
       this.syncToModel
     );
   };
 
   render() {
-    const { events, active, debugData } = this.state;
+    const { events, active } = this.state;
 
     return (
       <div style={{ padding: 20 }}>
@@ -151,15 +147,14 @@ export default class App extends Component {
 
         {active && (
           <>
-            <h3>Editar Bloqueios</h3>
+            <h3>Editar Bloqueio</h3>
             <p>
-              {moment(active.start).format("HH:mm")} –{" "}
-              {moment(active.end).format("HH:mm")}
+              {moment(active.start).format("HH:mm")} – {moment(active.end).format("HH:mm")}
             </p>
             <button
               onClick={() => this.handleRemove(active.id)}
               style={{
-                marginTop: 12,
+                marginTop: 8,
                 background: "#dc2626",
                 color: "white",
                 border: "none",
@@ -168,28 +163,21 @@ export default class App extends Component {
                 cursor: "pointer",
               }}
             >
-              Remover bloqueio
+              Remover este bloqueio
             </button>
           </>
         )}
 
         {active && (
           <Timeline
-            bookings={events.filter((e) => e.status !== "bloqueado")}
-            blocks={events.filter((e) => e.status === "bloqueado")}
+            bookings={events.filter(e => e.status !== "bloqueado")}
+            blocks={events.filter(e => e.status === "bloqueado")}
             active={active}
             onChange={this.handleUpdate}
             onAdd={this.handleAdd}
             onSelect={this.handleSelect}
           />
         )}
-
-        <div style={{ marginTop: 24, fontFamily: "monospace" }}>
-          <h3>Debug local</h3>
-          <pre style={{ background: "#f3f4f6", padding: 8 }}>
-            {debugData ? JSON.stringify(debugData, null, 2) : "– nada –"}
-          </pre>
-        </div>
       </div>
     );
   }
