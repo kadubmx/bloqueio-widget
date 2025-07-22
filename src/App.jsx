@@ -129,59 +129,59 @@ export default class App extends Component {
   };
 
   render() {
-    const { events, active } = this.state;
+  const { events, active } = this.state;
 
-    return (
-      <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
-        <h1 style={{ color: '#1f2937', marginBottom: '20px' }}>Bloqueios do Dia</h1>
+  return (
+    <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
+      {/* removido o <h1> */}
 
-        {active && (
-          <div style={{ 
-            marginBottom: '20px', 
-            padding: '15px', 
-            background: '#f3f4f6', 
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb'
-          }}>
-            <h3 style={{ color: '#374151', margin: '0 0 10px 0' }}>Editar Bloqueio</h3>
-            <p style={{ margin: '0 0 10px 0', color: '#6b7280' }}>
-              {this.formatTime(active.start)} – {this.formatTime(active.end)}
-            </p>
-            <button
-              style={{
-                background: "#dc2626",
-                color: "white",
-                border: "none",
-                padding: "8px 16px",
-                cursor: "pointer",
-                borderRadius: "6px",
-                fontSize: "14px",
-                fontWeight: "500"
-              }}
-              onClick={this.handleRemove}
-            >
-              Remover este bloqueio
-            </button>
-          </div>
-        )}
-
-        {events.length > 0 && (
-          <Timeline
-            bookings={events.filter((e) => e.status !== "bloqueado")}
-            blocks={events.filter((e) => e.status === "bloqueado")}
-            active={active}
-            onChange={this.handleUpdate}
-            onAdd={this.handleAdd}
-            onSelect={this.handleSelect}
-          />
-        )}
-
-        <div style={{ marginTop: '20px', fontSize: '12px', color: '#6b7280' }}>
-          <p>• <span style={{display: 'inline-block', width: '12px', height: '12px', background: '#a7f3d0', marginRight: '8px'}}></span>Clique nos horários livres (verde) para criar bloqueios</p>
-          <p>• <span style={{display: 'inline-block', width: '12px', height: '12px', background: 'linear-gradient(to right,#fecaca,#fca5a5)', marginRight: '8px'}}></span>Bloqueios podem ser redimensionados arrastando as bordas</p>
-          <p>• <span style={{display: 'inline-block', width: '2px', height: '12px', background: '#10b981', marginRight: '10px'}}></span>Linha verde indica o horário atual</p>
+      {active && (
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          background: '#f3f4f6', 
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h3 style={{ color: '#374151', margin: '0 0 10px 0' }}>Editar Bloqueio</h3>
+          <p style={{ margin: '0 0 10px 0', color: '#6b7280' }}>
+            {this.formatTime(active.start)} – {this.formatTime(active.end)}
+          </p>
+          <button
+            style={{
+              background: "#dc2626",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              cursor: "pointer",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: "500"
+            }}
+            onClick={this.handleRemove}
+          >
+            Remover este bloqueio
+          </button>
         </div>
+      )}
+
+      {events.length > 0 && (
+        <Timeline
+          bookings={events.filter((e) => e.status !== "bloqueado")}
+          blocks={events.filter((e) => e.status === "bloqueado")}
+          active={active}
+          onChange={this.handleUpdate}
+          onAdd={this.handleAdd}
+          onSelect={this.handleSelect}
+        />
+      )}
+
+      <div style={{ marginTop: '20px', fontSize: '12px', color: '#6b7280' }}>
+        <p>• <span style={{display: 'inline-block', width: '12px', height: '12px', background: '#a7f3d0', marginRight: '8px'}}></span>Clique nos horários livres (verde) para criar bloqueios</p>
+        <p>• <span style={{display: 'inline-block', width: '12px', height: '12px', background: 'linear-gradient(to right,#fecaca,#fca5a5)', marginRight: '8px'}}></span>Bloqueios podem ser redimensionados arrastando as bordas</p>
+        <p>• <span style={{display: 'inline-block', width: '2px', height: '12px', background: '#10b981', marginRight: '10px'}}></span>Linha verde indica o horário atual</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 }
