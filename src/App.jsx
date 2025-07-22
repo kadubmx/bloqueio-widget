@@ -19,8 +19,18 @@ export default class App extends Component {
 
   /* ===== ciclo de vida ===== */
   componentDidMount() {
-    this.loadEvents();
+  this.loadEvents();
+
+  if (typeof Lowcoder !== 'undefined') {
+    Lowcoder.custom1 = Lowcoder.custom1 || {};
+    Lowcoder.custom1.removeActive = () => {
+      if (this.state.active) {
+        this.handleRemove(this.state.active.id);
+      }
+    };
   }
+}
+
 
   componentDidUpdate(prevProps) {
   const beforeRaw = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
