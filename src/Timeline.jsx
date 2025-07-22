@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 const SLOT = 15;
-const DAY_MIN = 16 * 60; // 16 horas (6h às 22h)
+const DAY_MIN = 16 * 60; // 16h no total (6h às 22h)
 
 export default function Timeline({
   bookings,
@@ -11,8 +11,10 @@ export default function Timeline({
   onAdd,
   onSelect,
 }) {
-  const dayStart = new Date(active?.start || Date.now());
-  dayStart.setHours(6, 0, 0, 0);
+  const fallbackStart = new Date();
+  fallbackStart.setHours(6, 0, 0, 0);
+
+  const dayStart = new Date(active?.start || fallbackStart);
 
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -20,8 +22,12 @@ export default function Timeline({
     return () => clearInterval(int);
   }, []);
 
-  const [sMin, setS] = useState((active?.start - dayStart) / 60000 || 0);
-  const [eMin, setE] = useState((active?.end - dayStart) / 60000 || SLOT);
+  const [sMin, setS] = useState(
+    active ? (active.start - dayStart) / 60000 : 0
+  );
+  const [eMin, setE] = useState(
+    active ? (active.end - dayStart) / 60000 : SLOT
+  );
 
   useEffect(() => {
     if (!active) return;
@@ -29,29 +35,31 @@ export default function Timeline({
     setE((active.end - dayStart) / 60000);
   }, [active, dayStart]);
 
-  const pct = m => (m / DAY_MIN) * 100;
-  const snap = m => Math.round(m / SLOT) * SLOT;
+  const pct = (m) => (m / DAY_MIN) * 100;
+  const snap = (m) => Math.round(m / SLOT) * SLOT;
 
   const clash = (s, e) =>
     bookings
-      .concat(blocks.filter(b => b.id !== active?.id))
+      .concat(blocks.filter((b) => b.id !== active?.id))
       .some(
-        ev =>
+        (ev) =>
           s < (ev.end - dayStart) / 60000 &&
           e > (ev.start - dayStart) / 60000
       );
 
   const propagate = (ns, ne) =>
+    onChange &&
     onChange({
       ...active,
       start: new Date(dayStart.getTime() + ns * 60000),
       end: new Date(dayStart.getTime() + ne * 60000),
     });
 
-  const drag = edge => downEvt => {
+  const drag = (edge) => (downEvt) => {
+    if (!active) return;
     downEvt.preventDefault();
     const bar = downEvt.currentTarget.parentNode.parentNode;
-    const move = mv => {
+    const move = (mv) => {
       const { left, width } = bar.getBoundingClientRect();
       const raw = ((mv.clientX - left) / width) * DAY_MIN;
       const pos = snap(Math.max(0, Math.min(DAY_MIN, raw)));
@@ -81,7 +89,7 @@ export default function Timeline({
   let cur = 0;
   [...bookings, ...blocks]
     .sort((a, b) => a.start - b.start)
-    .forEach(ev => {
+    .forEach((ev) => {
       const s = (ev.start - dayStart) / 60000;
       const e = (ev.end - dayStart) / 60000;
       if (s - cur >= SLOT) free.push({ from: cur, to: s });
@@ -89,28 +97,27 @@ export default function Timeline({
     });
   if (DAY_MIN - cur >= SLOT) free.push({ from: cur, to: DAY_MIN });
 
-  const clickFree = slot => e => {
+  const clickFree = (slot) => (e) => {
     const box = e.currentTarget.getBoundingClientRect();
     const off = ((e.clientX - box.left) / box.width) * (slot.to - slot.from);
     const minute = snap(slot.from + off);
     if (!clash(minute, minute + SLOT))
-      onAdd(
-        new Date(dayStart.getTime() + minute * 60000),
-        new Date(dayStart.getTime() + (minute + SLOT) * 60000)
-      );
+      onAdd &&
+        onAdd(
+          new Date(dayStart.getTime() + minute * 60000),
+          new Date(dayStart.getTime() + (minute + SLOT) * 60000)
+        );
   };
 
-  // Função para gerar as marcações da régua (a cada 4 horas)
   const generateRulerMarks = () => {
     const marks = [];
-    // Começando às 6h, marcando a cada 4 horas: 6h, 10h, 14h, 18h, 22h
     for (let hour = 6; hour <= 22; hour += 4) {
-      const minutes = (hour - 6) * 60; // Minutos desde 6h
+      const minutes = (hour - 6) * 60;
       const percentage = pct(minutes);
       marks.push({
         hour,
         percentage,
-        label: `${hour.toString().padStart(2, '0')}:00`
+        label: `${hour.toString().padStart(2, "0")}:00`,
       });
     }
     return marks;
@@ -120,32 +127,29 @@ export default function Timeline({
 
   return (
     <div style={{ position: "relative", height: "80px", background: "#f9fafb", marginTop: "30px" }}>
-      {/* Régua com marcações a cada 4 horas */}
-      <div 
-        className="ruler" 
-        style={{ 
-          position: "absolute", 
-          top: "-30px", 
-          width: "100%", 
+      <div
+        className="ruler"
+        style={{
+          position: "absolute",
+          top: "-30px",
+          width: "100%",
           height: "25px",
-          borderBottom: "1px solid #e5e7eb"
+          borderBottom: "1px solid #e5e7eb",
         }}
       >
         {rulerMarks.map((mark, i) => (
           <div key={i} style={{ position: "absolute", left: `${mark.percentage}%` }}>
-            {/* Linha vertical da marcação */}
-            <div 
+            <div
               style={{
                 position: "absolute",
                 left: "-0.5px",
                 top: "15px",
                 width: "1px",
                 height: "10px",
-                background: "#6b7280"
+                background: "#6b7280",
               }}
             />
-            {/* Label do horário */}
-            <span 
+            <span
               style={{
                 position: "absolute",
                 left: "50%",
@@ -153,7 +157,7 @@ export default function Timeline({
                 transform: "translateX(-50%)",
                 fontSize: "11px",
                 color: "#6b7280",
-                fontWeight: "500"
+                fontWeight: "500",
               }}
             >
               {mark.label}
@@ -162,11 +166,11 @@ export default function Timeline({
         ))}
       </div>
 
-      {/* Timeline principal */}
-      <div className="timeline" style={{ position: "relative", height: "60px", background: "#f9fafb" }}>
-        
-        {/* Agendamentos existentes */}
-        {bookings.map(b => (
+      <div
+        className="timeline"
+        style={{ position: "relative", height: "60px", background: "#f9fafb" }}
+      >
+        {bookings.map((b) => (
           <div
             key={b.id}
             className="segment busy"
@@ -174,19 +178,19 @@ export default function Timeline({
               left: `${pct((b.start - dayStart) / 60000)}%`,
               width: `${pct((b.end - b.start) / 60000)}%`,
               position: "absolute",
-              top: 0, 
+              top: 0,
               bottom: 0,
-              background: b.status === "pendente"
-                ? "linear-gradient(135deg,#fef9c3,#fde68a)"
-                : "linear-gradient(135deg,#bfdbfe,#93c5fd)",
+              background:
+                b.status === "pendente"
+                  ? "linear-gradient(135deg,#fef9c3,#fde68a)"
+                  : "linear-gradient(135deg,#bfdbfe,#93c5fd)",
               border: "1px solid rgba(0,0,0,0.1)",
-              borderRadius: "2px"
+              borderRadius: "2px",
             }}
           />
         ))}
 
-        {/* Bloqueios */}
-        {blocks.map(blk => (
+        {blocks.map((blk) => (
           <div
             key={blk.id}
             className={blk.id === active?.id ? "segment block active" : "segment block"}
@@ -194,19 +198,19 @@ export default function Timeline({
               left: `${pct((blk.start - dayStart) / 60000)}%`,
               width: `${pct((blk.end - blk.start) / 60000)}%`,
               position: "absolute",
-              top: 0, 
+              top: 0,
               bottom: 0,
               background: "linear-gradient(to right,#fecaca,#fca5a5)",
               border: blk.id === active?.id ? "2px solid #dc2626" : "1px solid rgba(0,0,0,0.1)",
               borderRadius: "2px",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
-            onClick={() => onSelect(blk)}
+            onClick={() => onSelect && onSelect(blk)}
           >
             {blk.id === active?.id && (
               <>
-                <div 
-                  className="handle left" 
+                <div
+                  className="handle left"
                   onMouseDown={drag("start")}
                   style={{
                     position: "absolute",
@@ -222,13 +226,13 @@ export default function Timeline({
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: "8px",
-                    borderRadius: "2px"
+                    borderRadius: "2px",
                   }}
                 >
                   ⋮
                 </div>
-                <div 
-                  className="handle right" 
+                <div
+                  className="handle right"
                   onMouseDown={drag("end")}
                   style={{
                     position: "absolute",
@@ -244,7 +248,7 @@ export default function Timeline({
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: "8px",
-                    borderRadius: "2px"
+                    borderRadius: "2px",
                   }}
                 >
                   ⋮
@@ -254,7 +258,6 @@ export default function Timeline({
           </div>
         ))}
 
-        {/* Horários livres */}
         {free.map((f, i) => (
           <div
             key={i}
@@ -263,18 +266,17 @@ export default function Timeline({
               left: `${pct(f.from)}%`,
               width: `${pct(f.to - f.from)}%`,
               position: "absolute",
-              top: 0, 
+              top: 0,
               bottom: 0,
               background: "#a7f3d0",
               cursor: "pointer",
               opacity: 0.7,
-              borderRadius: "2px"
+              borderRadius: "2px",
             }}
             onClick={clickFree(f)}
           />
         ))}
 
-        {/* Linha verde do horário atual */}
         <div
           className="current-time"
           style={{
@@ -284,11 +286,13 @@ export default function Timeline({
             width: "2px",
             background: "#10b981",
             zIndex: 10,
-            left: `${Math.max(0, Math.min(100, pct((now - dayStart.getTime()) / 60000)))}%`,
-            boxShadow: "0 0 4px rgba(16, 185, 129, 0.5)"
+            left: `${Math.max(
+              0,
+              Math.min(100, pct((now - dayStart.getTime()) / 60000))
+            )}%`,
+            boxShadow: "0 0 4px rgba(16, 185, 129, 0.5)",
           }}
         >
-          {/* Indicador no topo da linha */}
           <div
             style={{
               position: "absolute",
@@ -300,7 +304,7 @@ export default function Timeline({
               background: "#10b981",
               borderRadius: "50%",
               border: "2px solid white",
-              boxShadow: "0 0 4px rgba(0,0,0,0.2)"
+              boxShadow: "0 0 4px rgba(0,0,0,0.2)",
             }}
           />
         </div>

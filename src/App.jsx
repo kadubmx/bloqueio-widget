@@ -158,21 +158,23 @@ export default class App extends Component {
           <p style={{ margin: '0 0 10px 0', color: '#6b7280' }}>
             {this.formatTime(active.start)} – {this.formatTime(active.end)}
           </p>
-          <button
-            style={{
-              background: "#dc2626",
-              color: "white",
-              border: "none",
-              padding: "8px 16px",
-              cursor: "pointer",
-              borderRadius: "6px",
-              fontSize: "14px",
-              fontWeight: "500"
-            }}
-            onClick={this.handleRemove}
-          >
-            Remover este bloqueio
-          </button>
+         <button
+  style={{
+    background: active ? "#dc2626" : "#fca5a5",
+    color: "white",
+    border: "none",
+    padding: "8px 16px",
+    cursor: active ? "pointer" : "not-allowed",
+    borderRadius: "6px",
+    fontSize: "14px",
+    fontWeight: "500"
+  }}
+  onClick={this.handleRemove}
+  disabled={!active}
+>
+  Remover este bloqueio
+</button>
+
         </div>
       )}
 
