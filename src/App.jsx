@@ -12,6 +12,7 @@ export default class App extends Component {
 
   componentDidMount() {
     this.loadEvents();
+    this.setActiveFromModel();
   }
 
   componentDidUpdate(prevProps) {
@@ -20,22 +21,50 @@ export default class App extends Component {
     if (before !== after) this.loadEvents();
   }
 
- loadEvents = () => {
-  const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
-  const parsed = data.map((ev) => ({
-    ...ev,
-    start: new Date(ev.inicio),
-    end: new Date(ev.fim),
-    title: ev.status_agendamento === "bloqueado" ? "Bloqueio" : ev.nome_paciente || ev.status_agendamento || "Evento",
-    status: ev.status_agendamento,
-  }));
+  setActiveFromModel = () => {
+    const m = this.props.customWidget?.model;
 
-  this.setState(prev => ({
-    events: parsed,
-    active: parsed.find((e) => e.status === "bloqueado") || prev.active, // Mantém o active se não encontrar
-    // Não reseta os pending states aqui
-  }));
-};
+    if (m?.bloqueioSelecionado) {
+      const { start, end } = m.bloqueioSelecionado;
+      this.setState({
+        active: {
+          id: "from-model",
+          start: new Date(start),
+          end: new Date(end),
+          status: "bloqueado",
+          title: "Bloqueio Selecionado",
+        }
+      });
+    } else if (m?.slotSelecionado) {
+      const { start, end } = m.slotSelecionado;
+      this.setState({
+        active: {
+          id: "from-model",
+          start: new Date(start),
+          end: new Date(end),
+          status: "slot",
+          title: "Slot Selecionado",
+        }
+      });
+    }
+  }
+
+  loadEvents = () => {
+    const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
+    const parsed = data.map((ev) => ({
+      ...ev,
+      start: new Date(ev.inicio),
+      end: new Date(ev.fim),
+      title: ev.status_agendamento === "bloqueado" ? "Bloqueio" : ev.nome_paciente || ev.status_agendamento || "Evento",
+      status: ev.status_agendamento,
+    }));
+
+    this.setState(prev => ({
+      events: parsed,
+      active: parsed.find((e) => e.status === "bloqueado") || prev.active,
+    }));
+  };
+
   blkPayload = (b) => ({
     id: b.id,
     inicio: b.start.toISOString(),
@@ -103,98 +132,90 @@ export default class App extends Component {
   };
 
   handleRemove = () => {
-  this.setState(
-    (prev) => {
-      const { active, events, pendingAdds, pendingUpdates, pendingRemoves } = prev;
-      
-      // Se for um novo bloqueio (ainda não sincronizado), remove do pendingAdds
-      const isNew = pendingAdds.some(p => p.id === active.id);
-      const newAdds = isNew ? pendingAdds.filter(p => p.id !== active.id) : pendingAdds;
-      
-      // Se foi atualizado (ainda não sincronizado), remove do pendingUpdates
-      const newUpdates = pendingUpdates.filter(u => u.id !== active.id);
-      
-      // Adiciona ao pendingRemoves apenas se não for um novo bloqueio
-      const newRemoves = isNew ? pendingRemoves : [...pendingRemoves, active.id];
-      
-      const newEvents = events.filter((e) => e.id !== active.id);
-      const nextActive = newEvents.find((e) => e.status === "bloqueado") || null;
-      
-      return {
-        events: newEvents,
-        active: nextActive,
-        pendingAdds: newAdds,
-        pendingUpdates: newUpdates,
-        pendingRemoves: newRemoves,
-      };
-    },
-    this.syncToModel
-  );
-};
+    this.setState(
+      (prev) => {
+        const { active, events, pendingAdds, pendingUpdates, pendingRemoves } = prev;
+
+        const isNew = pendingAdds.some(p => p.id === active.id);
+        const newAdds = isNew ? pendingAdds.filter(p => p.id !== active.id) : pendingAdds;
+        const newUpdates = pendingUpdates.filter(u => u.id !== active.id);
+        const newRemoves = isNew ? pendingRemoves : [...pendingRemoves, active.id];
+
+        const newEvents = events.filter((e) => e.id !== active.id);
+        const nextActive = newEvents.find((e) => e.status === "bloqueado") || null;
+
+        return {
+          events: newEvents,
+          active: nextActive,
+          pendingAdds: newAdds,
+          pendingUpdates: newUpdates,
+          pendingRemoves: newRemoves,
+        };
+      },
+      this.syncToModel
+    );
+  };
 
   formatTime = (date) => {
-    return date.toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
   render() {
-  const { events, active } = this.state;
+    const { events, active } = this.state;
 
-  return (
-    <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
-      {/* removido o <h1> */}
+    return (
+      <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
+        {active && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '15px',
+            background: '#f3f4f6',
+            borderRadius: '8px',
+            border: '1px solid #e5e7eb'
+          }}>
+            <h3 style={{ color: '#374151', margin: '0 0 10px 0' }}>Editar Bloqueio</h3>
+            <p style={{ margin: '0 0 10px 0', color: '#6b7280' }}>
+              {this.formatTime(active.start)} – {this.formatTime(active.end)}
+            </p>
+            <button
+              style={{
+                background: active ? "#dc2626" : "#fca5a5",
+                color: "white",
+                border: "none",
+                padding: "8px 16px",
+                cursor: active ? "pointer" : "not-allowed",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: "500"
+              }}
+              onClick={this.handleRemove}
+              disabled={!active}
+            >
+              Remover este bloqueio
+            </button>
+          </div>
+        )}
 
-      {active && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '15px', 
-          background: '#f3f4f6', 
-          borderRadius: '8px',
-          border: '1px solid #e5e7eb'
-        }}>
-          <h3 style={{ color: '#374151', margin: '0 0 10px 0' }}>Editar Bloqueio</h3>
-          <p style={{ margin: '0 0 10px 0', color: '#6b7280' }}>
-            {this.formatTime(active.start)} – {this.formatTime(active.end)}
-          </p>
-         <button
-  style={{
-    background: active ? "#dc2626" : "#fca5a5",
-    color: "white",
-    border: "none",
-    padding: "8px 16px",
-    cursor: active ? "pointer" : "not-allowed",
-    borderRadius: "6px",
-    fontSize: "14px",
-    fontWeight: "500"
-  }}
-  onClick={this.handleRemove}
-  disabled={!active}
->
-  Remover este bloqueio
-</button>
+        {events.length > 0 && (
+          <Timeline
+            bookings={events.filter((e) => e.status !== "bloqueado")}
+            blocks={events.filter((e) => e.status === "bloqueado")}
+            active={active}
+            onChange={this.handleUpdate}
+            onAdd={this.handleAdd}
+            onSelect={this.handleSelect}
+          />
+        )}
 
+        <div style={{ marginTop: '20px', fontSize: '12px', color: '#6b7280' }}>
+          <p>• <span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#a7f3d0', marginRight: '8px' }}></span>Clique nos horários livres (verde) para criar bloqueios</p>
+          <p>• <span style={{ display: 'inline-block', width: '12px', height: '12px', background: 'linear-gradient(to right,#fecaca,#fca5a5)', marginRight: '8px' }}></span>Bloqueios podem ser redimensionados arrastando as bordas</p>
+          <p>• <span style={{ display: 'inline-block', width: '2px', height: '12px', background: '#10b981', marginRight: '10px' }}></span>Linha verde indica o horário atual</p>
         </div>
-      )}
-
-      {events.length > 0 && (
-        <Timeline
-          bookings={events.filter((e) => e.status !== "bloqueado")}
-          blocks={events.filter((e) => e.status === "bloqueado")}
-          active={active}
-          onChange={this.handleUpdate}
-          onAdd={this.handleAdd}
-          onSelect={this.handleSelect}
-        />
-      )}
-
-      <div style={{ marginTop: '20px', fontSize: '12px', color: '#6b7280' }}>
-        <p>• <span style={{display: 'inline-block', width: '12px', height: '12px', background: '#a7f3d0', marginRight: '8px'}}></span>Clique nos horários livres (verde) para criar bloqueios</p>
-        <p>• <span style={{display: 'inline-block', width: '12px', height: '12px', background: 'linear-gradient(to right,#fecaca,#fca5a5)', marginRight: '8px'}}></span>Bloqueios podem ser redimensionados arrastando as bordas</p>
-        <p>• <span style={{display: 'inline-block', width: '2px', height: '12px', background: '#10b981', marginRight: '10px'}}></span>Linha verde indica o horário atual</p>
       </div>
-    </div>
-  );
-}
+    );
+  }
 }
