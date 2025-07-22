@@ -1,4 +1,3 @@
-/* src/App.jsx */
 import React, { Component } from "react";
 import Timeline from "./Timeline";
 import moment from "moment";
@@ -13,23 +12,21 @@ export default class App extends Component {
     debugData: null,
   };
 
-  /* ---------- ciclo de vida ---------- */
   componentDidMount() {
     this.loadEvents();
 
-    /* expõe método para botão externo (opcional) */
-    if (typeof Lowcoder !== "undefined") {
-      const WIDGET = "custom1";                // <‑‑ troque se seu widget tem outro nome
-      Lowcoder[WIDGET] = Lowcoder[WIDGET] || {};
-      Lowcoder[WIDGET].removeActive = () => {
-        if (this.state.active) this.handleRemove(this.state.active.id);
+    if (typeof Lowcoder !== 'undefined') {
+      Lowcoder.custom1 = Lowcoder.custom1 || {};
+      Lowcoder.custom1.removeActive = () => {
+        if (this.state.active) {
+          this.handleRemove(this.state.active.id);
+        }
       };
     }
   }
 
   componentDidUpdate(prevProps) {
-    const beforeRaw =
-      prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
+    const beforeRaw = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
     const afterRaw = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
 
     if (JSON.stringify(beforeRaw || []) !== JSON.stringify(afterRaw || [])) {
@@ -37,10 +34,8 @@ export default class App extends Component {
     }
   }
 
-  /* ---------- helpers ---------- */
   loadEvents = () => {
-    const data =
-      this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
+    const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
 
     const parsed = data.map((ev) => ({
       ...ev,
@@ -81,7 +76,6 @@ export default class App extends Component {
     });
   };
 
-  /* ---------- callbacks ---------- */
   handleAdd = (start, end) => {
     const novo = {
       id: Date.now(),
@@ -132,7 +126,9 @@ export default class App extends Component {
     );
   };
 
-  handleSelect = (blk) => this.setState({ active: blk });
+  handleSelect = (blk) => {
+    this.setState({ active: blk });
+  };
 
   handleRemove = (blkId) => {
     this.setState(
@@ -146,7 +142,6 @@ export default class App extends Component {
     );
   };
 
-  /* ---------- render ---------- */
   render() {
     const { events, active, debugData } = this.state;
 
@@ -161,24 +156,20 @@ export default class App extends Component {
               {moment(active.start).format("HH:mm")} –{" "}
               {moment(active.end).format("HH:mm")}
             </p>
-
-            {/* botão remover apenas quando for bloqueio */}
-            {active.status === "bloqueado" && (
-              <button
-                onClick={() => this.handleRemove(active.id)}
-                style={{
-                  background: "#dc2626",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  padding: "6px 12px",
-                  cursor: "pointer",
-                  marginBottom: 6,
-                }}
-              >
-                Remover bloqueio
-              </button>
-            )}
+            <button
+              onClick={() => this.handleRemove(active.id)}
+              style={{
+                marginTop: 12,
+                background: "#dc2626",
+                color: "white",
+                border: "none",
+                padding: "6px 12px",
+                borderRadius: 4,
+                cursor: "pointer",
+              }}
+            >
+              Remover bloqueio
+            </button>
           </>
         )}
 
@@ -194,7 +185,7 @@ export default class App extends Component {
         )}
 
         <div style={{ marginTop: 24, fontFamily: "monospace" }}>
-          <h4>Debug</h4>
+          <h3>Debug local</h3>
           <pre style={{ background: "#f3f4f6", padding: 8 }}>
             {debugData ? JSON.stringify(debugData, null, 2) : "– nada –"}
           </pre>
