@@ -7,8 +7,8 @@ export default defineConfig({
 
   build: {
     lib: {
-      entry: 'src/index.jsx',
-      name: 'BloqueioWidget',          // 👈 gera window.BloqueioWidget
+      entry: 'src/index.jsx',      // ponto de entrada
+      name:  'BloqueioWidget',     // ← OBRIGATÓRIO para iife/umd
       formats: ['iife'],
       fileName: () => 'bloqueio-widget.js',
     },

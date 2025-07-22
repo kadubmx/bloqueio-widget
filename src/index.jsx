@@ -2,20 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-/* Lowcoder.connect só existe *dentro* do Lowcoder.
-   Se estiver testando fora, criamos um mock vazio. */
-const LowcoderGlobal = window.Lowcoder || {
-  connect: (C) => (props) => <C {...props} />,
-};
+// Usa Lowcoder.connect se existir; fora do Lowcoder usa fallback
+const LowcoderAPI = window.Lowcoder || { connect: (C) => (p) => <C {...p} /> };
+const Connected   = LowcoderAPI.connect(App);
 
-const Connected = LowcoderGlobal.connect(App);
-
-/* monta o app no elemento informado */
 function mount(targetId = 'root', props = {}) {
   const el = document.getElementById(targetId);
-  if (!el) return console.error(`elemento #${targetId} inexistente`);
+  if (!el) { console.error(`#${targetId} não encontrado`); return; }
   ReactDOM.createRoot(el).render(<Connected {...props} />);
 }
 
-/* 👉 exporta mount como *default*  – é isso que vira window.BloqueioWidget */
-export default { mount };
+window.BloqueioWidget = { mount };   // <- define sempre
