@@ -7,13 +7,13 @@ export default defineConfig({
 
   build: {
     lib: {
-      entry: 'src/index.jsx',
-      name:  'BloqueioWidget',        // cria window.BloqueioWidget
+      entry: 'src/index.jsx',        // ponto de entrada
+      name:  'BloqueioWidget',       // cria window.BloqueioWidget
       formats: ['iife'],
       fileName: () => 'bloqueio-widget.js',
     },
     rollupOptions: {
-      external: ['react', 'react-dom'],   // ← EXTERNAL NOVAMENTE
+      external: ['react', 'react-dom'],         // usa React da CDN
       output: {
         globals: { react: 'React', 'react-dom': 'ReactDOM' },
       },
