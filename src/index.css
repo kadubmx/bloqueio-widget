@@ -76,3 +76,27 @@
 .handle.right { right: -5px; }
 
 .segment.block.active .handle:hover { opacity: 1; }
+/* index.css */
+
+.current-time {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: red;
+  z-index: 10;
+}
+
+.ruler {
+  position: relative;
+  height: 20px;
+  font-size: 12px;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.ruler-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
