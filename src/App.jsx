@@ -50,21 +50,33 @@ export default class App extends Component {
     }
   }
 
-  loadEvents = () => {
-    const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
-    const parsed = data.map((ev) => ({
-      ...ev,
-      start: new Date(ev.inicio),
-      end: new Date(ev.fim),
-      title: ev.status_agendamento === "bloqueado" ? "Bloqueio" : ev.nome_paciente || ev.status_agendamento || "Evento",
-      status: ev.status_agendamento,
-    }));
+ loadEvents = () => {
+  const result = this.props.model?.getAgendaDia?.data?.[0]?.result || {};
+  const data = result.events || [];
+  const slot = result.slotSelecionado;
 
-    this.setState(prev => ({
-      events: parsed,
-      active: parsed.find((e) => e.status === "bloqueado") || prev.active,
-    }));
-  };
+  const parsed = data.map(ev => ({
+    ...ev,
+    start: new Date(ev.inicio),
+    end:   new Date(ev.fim),
+    title: ev.status_agendamento === "bloqueado" ? "Bloqueio" : ev.nome_paciente || ev.status_agendamento || "Evento",
+    status: ev.status_agendamento,
+  }));
+
+  this.setState(prev => ({
+    events: parsed,
+    active: slot
+      ? {
+          id: "from-db",
+          start: new Date(slot.start),
+          end:   new Date(slot.end),
+          status: "slot",
+          title: "Slot Selecionado"
+        }
+      : parsed.find(e => e.status === "bloqueado") || prev.active
+  }));
+};
+
 
   blkPayload = (b) => ({
     id: b.id,
