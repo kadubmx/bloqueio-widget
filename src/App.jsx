@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import Timeline from "./Timeline";
+import moment from "moment";
 
 export default class App extends Component {
   state = {
@@ -27,22 +28,21 @@ export default class App extends Component {
     if (m?.bloqueioSelecionado) {
       const { start, end } = m.bloqueioSelecionado;
       this.setState({
-  active: {
-    id: "from-model",
-    start: new Date(new Date(start).getTime() + new Date().getTimezoneOffset() * 60000),
-    end: new Date(new Date(end).getTime() + new Date().getTimezoneOffset() * 60000),
-    status: "bloqueado",
-    title: "Bloqueio Selecionado",
-  }
-});
-
+        active: {
+          id: "from-model",
+          start: moment.utc(start).local().toDate(),
+          end: moment.utc(end).local().toDate(),
+          status: "bloqueado",
+          title: "Bloqueio Selecionado",
+        }
+      });
     } else if (m?.slotSelecionado) {
       const { start, end } = m.slotSelecionado;
       this.setState({
         active: {
           id: "from-model",
-          start: new Date(start),
-          end: new Date(end),
+          start: moment.utc(start).local().toDate(),
+          end: moment.utc(end).local().toDate(),
           status: "slot",
           title: "Slot Selecionado",
         }
