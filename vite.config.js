@@ -8,15 +8,15 @@ export default defineConfig({
   build: {
     lib: {
       entry: 'src/index.jsx',
-      name: 'BloqueioWidget',            // cria window.BloqueioWidget
+      name:  'BloqueioWidget',        // cria window.BloqueioWidget
       formats: ['iife'],
       fileName: () => 'bloqueio-widget.js',
     },
-    // ⬇️  NÃO marque React como external
     rollupOptions: {
+      external: ['react', 'react-dom'],   // ← EXTERNAL NOVAMENTE
       output: {
-        globals: {}                      // nenhum global externo
-      }
+        globals: { react: 'React', 'react-dom': 'ReactDOM' },
+      },
     },
   },
 });
