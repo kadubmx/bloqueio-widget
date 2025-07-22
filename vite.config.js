@@ -9,7 +9,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: 'src/main.jsx',
-      name: 'BloqueioWidget',
+      name: 'BloqueioWidget', // <--- isso define o nome global no browser
       formats: ['iife'],
       fileName: () => 'bloqueio-widget.js',
     },
