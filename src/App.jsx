@@ -7,7 +7,11 @@ export default function App({ model, updateModel, runQuery }) {
   const [active, setActive] = useState(null);
 
   useEffect(() => {
+    console.log("Model recebido:", model); // Debug
+    
     const data = model?.getAgendaDia?.data?.[0]?.result?.events || [];
+    console.log("Dados extraídos:", data); // Debug
+    
     const parsed = data.map(ev => ({
       ...ev,
       start: new Date(ev.inicio),
