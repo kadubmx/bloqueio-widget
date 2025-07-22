@@ -67,14 +67,12 @@ export default class App extends Component {
     });
   };
 
-  /** converte blk->payload (id, inicio, fim) */
   blkPayload = (blk) => ({
     id: blk.id,
     inicio: blk.start.toISOString(),
     fim:    blk.end.toISOString(),
   });
 
-  /* ------------- callbacks da Timeline ------------- */
   handleAdd = (start, end) => {
     const novo = {
       id: Date.now(),
@@ -98,7 +96,6 @@ export default class App extends Component {
   handleUpdate = (blk) => {
     this.setState(
       (prev) => {
-        // se está em pendingAdds, apenas atualiza a entrada lá
         const inAdds = prev.pendingAdds.find((p) => p.id === blk.id);
         let adds = [...prev.pendingAdds];
         let updates = [...prev.pendingUpdates];
@@ -136,7 +133,6 @@ export default class App extends Component {
     this.setState({ active: blk });
   };
 
-  /* remover via botão no BlockModal (se existir) */
   handleRemove = (blkId) => {
     this.setState(
       (prev) => ({
@@ -149,7 +145,6 @@ export default class App extends Component {
     );
   };
 
-  /* ------------- render ------------- */
   render() {
     const { events, active, debugData } = this.state;
 
