@@ -7,44 +7,37 @@ export default class App extends Component {
   state = {
     events: [],
     active: null,
-
-    /* arrays que acumulam até você “Salvar” */
-    pendingAdds:    [],
+    pendingAdds: [],
     pendingUpdates: [],
     pendingRemoves: [],
-
-    /* opcional: debug local */
     debugData: null,
   };
 
-  /* ===== ciclo de vida ===== */
+  /* ---------- ciclo de vida ---------- */
   componentDidMount() {
-  this.loadEvents();
+    this.loadEvents();
 
-  if (typeof Lowcoder !== 'undefined') {
-    Lowcoder.custom1 = Lowcoder.custom1 || {};
-    Lowcoder.custom1.removeActive = () => {
-      if (this.state.active) {
-        this.handleRemove(this.state.active.id);
-      }
-    };
+    /* expõe método para botão externo (opcional) */
+    if (typeof Lowcoder !== "undefined") {
+      const WIDGET = "custom1";                // <‑‑ troque se seu widget tem outro nome
+      Lowcoder[WIDGET] = Lowcoder[WIDGET] || {};
+      Lowcoder[WIDGET].removeActive = () => {
+        if (this.state.active) this.handleRemove(this.state.active.id);
+      };
+    }
   }
-}
-
-
 
   componentDidUpdate(prevProps) {
-  const beforeRaw = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
-  const afterRaw  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
+    const beforeRaw =
+      prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
+    const afterRaw = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
 
-  // Só recarrega se mudou mesmo
-  const before = JSON.stringify(beforeRaw || []);
-  const after  = JSON.stringify(afterRaw || []);
-  if (before !== after) this.loadEvents();
-}
+    if (JSON.stringify(beforeRaw || []) !== JSON.stringify(afterRaw || [])) {
+      this.loadEvents();
+    }
+  }
 
-
-  /* ===== helpers ===== */
+  /* ---------- helpers ---------- */
   loadEvents = () => {
     const data =
       this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
@@ -52,7 +45,7 @@ export default class App extends Component {
     const parsed = data.map((ev) => ({
       ...ev,
       start: new Date(ev.inicio),
-      end:   new Date(ev.fim),
+      end: new Date(ev.fim),
       title:
         ev.status_agendamento === "bloqueado"
           ? "Bloqueio"
@@ -63,9 +56,7 @@ export default class App extends Component {
     this.setState({
       events: parsed,
       active: parsed.find((e) => e.status === "bloqueado") || null,
-
-      // zera filas quando recarrega da base
-      pendingAdds:    [],
+      pendingAdds: [],
       pendingUpdates: [],
       pendingRemoves: [],
     });
@@ -74,24 +65,23 @@ export default class App extends Component {
   blkPayload = (b) => ({
     id: b.id,
     inicio: b.start.toISOString(),
-    fim:    b.end.toISOString(),
+    fim: b.end.toISOString(),
   });
 
-  /** envia adds/updates/removes consolidados */
   syncToModel = () => {
     const { updateModel } = this.props;
     if (!updateModel) return;
     const { pendingAdds, pendingUpdates, pendingRemoves } = this.state;
     updateModel({
       bloqueioWidget: {
-        adds:    pendingAdds,
+        adds: pendingAdds,
         updates: pendingUpdates,
         removes: pendingRemoves,
       },
     });
   };
 
-  /* ===== callbacks Timeline ===== */
+  /* ---------- callbacks ---------- */
   handleAdd = (start, end) => {
     const novo = {
       id: Date.now(),
@@ -117,23 +107,21 @@ export default class App extends Component {
       (prev) => {
         const payload = this.blkPayload(blk);
 
-        const inAdds      = prev.pendingAdds.some((p) => p.id === blk.id);
-        const inUpdates   = prev.pendingUpdates.some((u) => u.id === blk.id);
+        const inAdds = prev.pendingAdds.some((p) => p.id === blk.id);
+        const inUpdates = prev.pendingUpdates.some((u) => u.id === blk.id);
 
-        const adds    = inAdds
+        const adds = inAdds
           ? prev.pendingAdds.map((p) => (p.id === blk.id ? payload : p))
           : prev.pendingAdds;
 
         const updates = inAdds
-          ? prev.pendingUpdates                // já está em adds, não duplica
+          ? prev.pendingUpdates
           : inUpdates
-              ? prev.pendingUpdates.map((u) => (u.id === blk.id ? payload : u))
-              : [...prev.pendingUpdates, payload];
+          ? prev.pendingUpdates.map((u) => (u.id === blk.id ? payload : u))
+          : [...prev.pendingUpdates, payload];
 
         return {
-          events: prev.events.map((e) =>
-            e.id === blk.id ? blk : e
-          ),
+          events: prev.events.map((e) => (e.id === blk.id ? blk : e)),
           active: blk,
           pendingAdds: adds,
           pendingUpdates: updates,
@@ -144,9 +132,7 @@ export default class App extends Component {
     );
   };
 
-  handleSelect = (blk) => {
-    this.setState({ active: blk });
-  };
+  handleSelect = (blk) => this.setState({ active: blk });
 
   handleRemove = (blkId) => {
     this.setState(
@@ -160,7 +146,7 @@ export default class App extends Component {
     );
   };
 
-  /* ===== render ===== */
+  /* ---------- render ---------- */
   render() {
     const { events, active, debugData } = this.state;
 
@@ -175,10 +161,27 @@ export default class App extends Component {
               {moment(active.start).format("HH:mm")} –{" "}
               {moment(active.end).format("HH:mm")}
             </p>
+
+            {/* botão remover apenas quando for bloqueio */}
+            {active.status === "bloqueado" && (
+              <button
+                onClick={() => this.handleRemove(active.id)}
+                style={{
+                  background: "#dc2626",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  marginBottom: 6,
+                }}
+              >
+                Remover bloqueio
+              </button>
+            )}
           </>
         )}
 
-        {/* Timeline só aparece quando há active para evitar erro start/null */}
         {active && (
           <Timeline
             bookings={events.filter((e) => e.status !== "bloqueado")}
@@ -190,13 +193,10 @@ export default class App extends Component {
           />
         )}
 
-        {/* debug local opcional */}
         <div style={{ marginTop: 24, fontFamily: "monospace" }}>
-          <h3>Debug local</h3>
+          <h4>Debug</h4>
           <pre style={{ background: "#f3f4f6", padding: 8 }}>
-            {debugData
-              ? JSON.stringify(debugData, null, 2)
-              : "– nada –"}
+            {debugData ? JSON.stringify(debugData, null, 2) : "– nada –"}
           </pre>
         </div>
       </div>
