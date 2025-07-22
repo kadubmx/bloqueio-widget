@@ -3,7 +3,6 @@ import Timeline from "./Timeline";
 import moment from "moment";
 
 export default class App extends Component {
-  /* -------------------------------------------------------------------- */
   state = {
     events: [],
     active: null,
@@ -11,11 +10,10 @@ export default class App extends Component {
     pendingUpdates: [],
     pendingRemoves: [],
   };
-  /* -------------------------------------------------------------------- */
-  /* ============ CICLO DE VIDA ========================================= */
+
   componentDidMount() {
-    this.loadEvents();      // dados vindos da query
-    this.setActiveFromModel(); // seleção que já estava no model
+    this.loadEvents();
+    this.setActiveFromModel();
   }
 
   componentDidUpdate(prevProps) {
@@ -24,47 +22,41 @@ export default class App extends Component {
     if (before !== after) this.loadEvents();
   }
 
-  /* -------------------------------------------------------------------- */
- /* ---------- 1.  SELEÇÃO VINDO DO MODEL (bloqueio/slot) ---------- */
-setActiveFromModel = () => {
-  const m = this.props.customWidget?.model;
+  setActiveFromModel = () => {
+    const m = this.props.customWidget?.model;
 
-  const buildActive = ({ start, end }) => ({
-    id: "from-model",
-    start: moment.utc(start).local().toDate(),
-    end:   moment.utc(end).local().toDate(),
-    status: "bloqueado",          // força que seja tratado como bloqueio
-    title:  "Bloqueio Selecionado"
-  });
+    const buildActive = ({ start, end }) => ({
+      id: "from-model",
+      start: moment.utc(start).local().toDate(),
+      end:   moment.utc(end).local().toDate(),
+      status: "bloqueado",
+      title:  "Bloqueio Selecionado"
+    });
 
-  if (m?.bloqueioSelecionado) {
-    const act = buildActive(m.bloqueioSelecionado);
-    this.setState(prev => ({
-      active: act,
-      /* se ainda não existir, adiciona ao events */
-      events: prev.events.some(e => e.id === act.id)
-                ? prev.events
-                : [...prev.events, act]
-    }));
-  } else if (m?.slotSelecionado) {
-    const act = buildActive(m.slotSelecionado);
-    this.setState(prev => ({
-      active: act,
-      events: prev.events.some(e => e.id === act.id)
-                ? prev.events
-                : [...prev.events, act]
-    }));
-  }
-};
+    if (m?.bloqueioSelecionado) {
+      const act = buildActive(m.bloqueioSelecionado);
+      this.setState(prev => ({
+        active: act,
+        events: prev.events.some(e => e.id === act.id)
+                  ? prev.events
+                  : [...prev.events, act]
+      }));
+    } else if (m?.slotSelecionado) {
+      const act = buildActive(m.slotSelecionado);
+      this.setState(prev => ({
+        active: act,
+        events: prev.events.some(e => e.id === act.id)
+                  ? prev.events
+                  : [...prev.events, act]
+      }));
+    }
+  };
 
-  /* -------------------------------------------------------------------- */
-  /* ============ 2.  CARREGA EVENTOS DA QUERY ========================== */
   loadEvents = () => {
     const result = this.props.model?.getAgendaDia?.data?.[0]?.result || {};
     const data   = result.events || [];
     const slot   = result.slotSelecionado;
 
-    /* converte todos os eventos da query */
     const parsed = data.map(ev => ({
       ...ev,
       start : new Date(ev.inicio),
@@ -75,7 +67,6 @@ setActiveFromModel = () => {
       status: ev.status_agendamento,
     }));
 
-    /* se a query trouxe slotSelecionado, monta bloco extra */
     let extraBlk = null;
     if (slot) {
       extraBlk = {
@@ -87,12 +78,10 @@ setActiveFromModel = () => {
       };
     }
 
-    /* junta eventos + (opcional) bloco-extra */
     const allEvents = extraBlk
       ? [...parsed, extraBlk]
       : parsed;
 
-    /* define active: preferência ao slot; senão, primeiro bloqueio existente */
     const newActive = extraBlk
       ? extraBlk
       : parsed.find(e => e.status === "bloqueado") || this.state.active;
@@ -100,8 +89,6 @@ setActiveFromModel = () => {
     this.setState({ events: allEvents, active: newActive });
   };
 
-  /* -------------------------------------------------------------------- */
-  /* ============ 3.  FUNÇÕES DE SINCRONIZAÇÃO COM MODEL =============== */
   blkPayload = (b) => ({
     id: b.id,
     inicio: b.start.toISOString(),
@@ -121,8 +108,6 @@ setActiveFromModel = () => {
     });
   };
 
-  /* -------------------------------------------------------------------- */
-  /* ============ 4.  CRUD DE BLOQUEIOS LOCAL =========================== */
   handleAdd = (start, end) => {
     const novo = {
       id: Date.now(),
@@ -175,12 +160,20 @@ setActiveFromModel = () => {
         const { active, events, pendingAdds, pendingUpdates, pendingRemoves } = prev;
         if (!active) return {};
 
-        const isNew      = pendingAdds.some(p => p.id === active.id);
-        const newAdds    = isNew ? pendingAdds.filter(p => p.id !== active.id) : pendingAdds;
-        const newUpdates = pendingUpdates.filter(u => u.id !== active.id);
-        const newRemoves = isNew ? pendingRemoves : [...pendingRemoves, active.id];
+        const isSameEvent = (e) =>
+          e.id === active.id ||
+          (e.start.getTime() === active.start.getTime() &&
+           e.end.getTime() === active.end.getTime());
 
-        const newEvents  = events.filter(e => e.id !== active.id);
+        const target = events.find(isSameEvent);
+        if (!target) return {};
+
+        const isNew      = pendingAdds.some(p => p.id === target.id);
+        const newAdds    = isNew ? pendingAdds.filter(p => p.id !== target.id) : pendingAdds;
+        const newUpdates = pendingUpdates.filter(u => u.id !== target.id);
+        const newRemoves = isNew ? pendingRemoves : [...pendingRemoves, target.id];
+
+        const newEvents  = events.filter(e => !isSameEvent(e));
         const nextActive = newEvents.find(e => e.status === "bloqueado") || null;
 
         return {
@@ -197,19 +190,14 @@ setActiveFromModel = () => {
 
   handleSelect = blk => this.setState({ active: blk });
 
-  /* -------------------------------------------------------------------- */
-  /* ============ 5.  HELPERS =========================================== */
   formatTime = (date) =>
     date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-  /* -------------------------------------------------------------------- */
-  /* ============ 6.  RENDER ============================================ */
   render() {
     const { events, active } = this.state;
 
     return (
       <div style={{ padding: 20, fontFamily: "system-ui, sans-serif" }}>
-        {/* ------------------- Painel editar ------------------- */}
         {active && (
           <div
             style={{
@@ -245,7 +233,6 @@ setActiveFromModel = () => {
           </div>
         )}
 
-        {/* ------------------- Timeline ------------------------ */}
         {events.length > 0 && (
           <Timeline
             bookings={events.filter((e) => e.status !== "bloqueado")}
@@ -257,7 +244,6 @@ setActiveFromModel = () => {
           />
         )}
 
-        {/* ------------------- Legenda ------------------------- */}
         <div style={{ marginTop: 20, fontSize: 12, color: "#6b7280" }}>
           <p>
             •{" "}
