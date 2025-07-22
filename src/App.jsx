@@ -23,11 +23,15 @@ export default class App extends Component {
   }
 
   componentDidUpdate(prevProps) {
-    // somente se a lista da query mudou
-    const before = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
-    const after  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
-    if (before !== after) this.loadEvents();
-  }
+  const beforeRaw = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
+  const afterRaw  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
+
+  // Só recarrega se mudou mesmo
+  const before = JSON.stringify(beforeRaw || []);
+  const after  = JSON.stringify(afterRaw || []);
+  if (before !== after) this.loadEvents();
+}
+
 
   /* ===== helpers ===== */
   loadEvents = () => {
