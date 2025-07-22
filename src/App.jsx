@@ -25,33 +25,37 @@ export default class App extends Component {
   }
 
   /* -------------------------------------------------------------------- */
-  /* ============ 1.  SELEÇÃO VINDO DO MODEL (bloqueio/slot) ============ */
-  setActiveFromModel = () => {
-    const m = this.props.customWidget?.model;
-    if (m?.bloqueioSelecionado) {
-      const { start, end } = m.bloqueioSelecionado;
-      this.setState({
-        active: {
-          id: "from-model",
-          start: moment.utc(start).local().toDate(),
-          end:   moment.utc(end).local().toDate(),
-          status:"bloqueado",
-          title: "Bloqueio Selecionado"
-        }
-      });
-    } else if (m?.slotSelecionado) {
-      const { start, end } = m.slotSelecionado;
-      this.setState({
-        active: {
-          id: "from-model",
-          start: moment.utc(start).local().toDate(),
-          end:   moment.utc(end).local().toDate(),
-          status:"bloqueado",
-          title: "Bloqueio Selecionado"
-        }
-      });
-    }
-  };
+ /* ---------- 1.  SELEÇÃO VINDO DO MODEL (bloqueio/slot) ---------- */
+setActiveFromModel = () => {
+  const m = this.props.customWidget?.model;
+
+  const buildActive = ({ start, end }) => ({
+    id: "from-model",
+    start: moment.utc(start).local().toDate(),
+    end:   moment.utc(end).local().toDate(),
+    status: "bloqueado",          // força que seja tratado como bloqueio
+    title:  "Bloqueio Selecionado"
+  });
+
+  if (m?.bloqueioSelecionado) {
+    const act = buildActive(m.bloqueioSelecionado);
+    this.setState(prev => ({
+      active: act,
+      /* se ainda não existir, adiciona ao events */
+      events: prev.events.some(e => e.id === act.id)
+                ? prev.events
+                : [...prev.events, act]
+    }));
+  } else if (m?.slotSelecionado) {
+    const act = buildActive(m.slotSelecionado);
+    this.setState(prev => ({
+      active: act,
+      events: prev.events.some(e => e.id === act.id)
+                ? prev.events
+                : [...prev.events, act]
+    }));
+  }
+};
 
   /* -------------------------------------------------------------------- */
   /* ============ 2.  CARREGA EVENTOS DA QUERY ========================== */
