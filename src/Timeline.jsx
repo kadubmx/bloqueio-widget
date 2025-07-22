@@ -70,6 +70,16 @@ export default function Timeline({
     document.addEventListener("mouseup", up);
   };
 
+  const up = () => {
+  document.removeEventListener("mousemove", move);
+  document.removeEventListener("mouseup", up);
+  onChangeEnd?.({
+    ...active,
+    start: new Date(dayStart.getTime() + sMin * 60000),
+    end:   new Date(dayStart.getTime() + eMin * 60000),
+  });
+};
+
   const free = [];
   let cur = 0;
   [...bookings, ...blocks]
