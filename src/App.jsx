@@ -20,25 +20,22 @@ export default class App extends Component {
     if (before !== after) this.loadEvents();
   }
 
-  loadEvents = () => {
-    const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
-    const parsed = data.map((ev) => ({
-      ...ev,
-      start: new Date(ev.inicio),
-      end: new Date(ev.fim),
-      title: ev.status_agendamento === "bloqueado" ? "Bloqueio" : ev.nome_paciente || ev.status_agendamento || "Evento",
-      status: ev.status_agendamento,
-    }));
+ loadEvents = () => {
+  const data = this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
+  const parsed = data.map((ev) => ({
+    ...ev,
+    start: new Date(ev.inicio),
+    end: new Date(ev.fim),
+    title: ev.status_agendamento === "bloqueado" ? "Bloqueio" : ev.nome_paciente || ev.status_agendamento || "Evento",
+    status: ev.status_agendamento,
+  }));
 
-    this.setState({
-      events: parsed,
-      active: parsed.find((e) => e.status === "bloqueado") || null,
-      pendingAdds: [],
-      pendingUpdates: [],
-      pendingRemoves: [],
-    });
-  };
-
+  this.setState(prev => ({
+    events: parsed,
+    active: parsed.find((e) => e.status === "bloqueado") || prev.active, // Mantém o active se não encontrar
+    // Não reseta os pending states aqui
+  }));
+};
   blkPayload = (b) => ({
     id: b.id,
     inicio: b.start.toISOString(),
@@ -106,20 +103,34 @@ export default class App extends Component {
   };
 
   handleRemove = () => {
-    this.setState(
-      (prev) => {
-        const { active, events, pendingRemoves } = prev;
-        const newEvents = events.filter((e) => e.id !== active.id);
-        const nextActive = newEvents.find((e) => e.status === "bloqueado") || null;
-        return {
-          events: newEvents,
-          active: nextActive,
-          pendingRemoves: [...pendingRemoves, active.id],
-        };
-      },
-      this.syncToModel
-    );
-  };
+  this.setState(
+    (prev) => {
+      const { active, events, pendingAdds, pendingUpdates, pendingRemoves } = prev;
+      
+      // Se for um novo bloqueio (ainda não sincronizado), remove do pendingAdds
+      const isNew = pendingAdds.some(p => p.id === active.id);
+      const newAdds = isNew ? pendingAdds.filter(p => p.id !== active.id) : pendingAdds;
+      
+      // Se foi atualizado (ainda não sincronizado), remove do pendingUpdates
+      const newUpdates = pendingUpdates.filter(u => u.id !== active.id);
+      
+      // Adiciona ao pendingRemoves apenas se não for um novo bloqueio
+      const newRemoves = isNew ? pendingRemoves : [...pendingRemoves, active.id];
+      
+      const newEvents = events.filter((e) => e.id !== active.id);
+      const nextActive = newEvents.find((e) => e.status === "bloqueado") || null;
+      
+      return {
+        events: newEvents,
+        active: nextActive,
+        pendingAdds: newAdds,
+        pendingUpdates: newUpdates,
+        pendingRemoves: newRemoves,
+      };
+    },
+    this.syncToModel
+  );
+};
 
   formatTime = (date) => {
     return date.toLocaleTimeString('pt-BR', { 
