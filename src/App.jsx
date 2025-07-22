@@ -6,43 +6,24 @@ import moment from "moment";
 export default class App extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      events: [],
-      active: null,
-    };
+    this.state = { events: [], active: null };
 
     this.handleUpdate = this.handleUpdate.bind(this);
     this.handleAdd    = this.handleAdd.bind(this);
     this.handleSelect = this.handleSelect.bind(this);
   }
 
-  /* ========= Helpers de Debug para o Lowcoder ========== */
+  /* ——— envia dados de debug para o Lowcoder ——— */
   pushDebug(data) {
     if (this.props.updateModel) {
       this.props.updateModel({ widgetDebug: data });
     }
   }
-  /* ===================================================== */
 
-  componentDidMount() {
-    this.updateEvents();                    // carrega na primeira vez
-  }
-
-  componentDidUpdate(prevProps) {
-    // se vier dado novo da query getAgendaDia → atualizar
-    if (
-      prevProps.model?.getAgendaDia?.data !==
-      this.props.model?.getAgendaDia?.data
-    ) {
-      this.updateEvents();
-    }
-  }
-
-  /* ---------- converte dados da query em eventos ---------- */
+  /* ——— carrega eventos vindos da query ——— */
   updateEvents() {
-    const { model } = this.props;
     const data =
-      model?.getAgendaDia?.data?.[0]?.result?.events || [];
+      this.props.model?.getAgendaDia?.data?.[0]?.result?.events || [];
 
     const parsed = data.map((ev) => ({
       ...ev,
@@ -63,16 +44,20 @@ export default class App extends Component {
       parsed.find((e) => e.status === "bloqueado") || parsed[0];
 
     this.setState({ events: parsed, active: firstBlock });
-
-    /* envia para debug */
-    this.pushDebug({
-      origem: "updateEvents",
-      totalEventos: parsed.length,
-      activeId: firstBlock?.id || null,
-    });
   }
 
-  /* ======== callbacks da Timeline / Modal ======== */
+  componentDidMount() {
+    this.updateEvents();
+  }
+
+  componentDidUpdate(prevProps) {
+    /* só recarrega se a LISTA DE EVENTOS mudar */
+    const before = prevProps.model?.getAgendaDia?.data?.[0]?.result?.events;
+    const after  = this.props.model?.getAgendaDia?.data?.[0]?.result?.events;
+    if (before !== after) this.updateEvents();
+  }
+
+  /* ——— callbacks da Timeline ——— */
   handleUpdate(blk) {
     this.setState(
       (prev) => ({
@@ -81,60 +66,34 @@ export default class App extends Component {
         ),
         active: blk,
       }),
-      () => {
-        this.pushDebug({
-          origem: "handleUpdate",
-          evento: {
-            id: blk.id,
-            start: blk.start.toISOString(),
-            end: blk.end.toISOString(),
-          },
-        });
-      }
+      () => this.pushDebug({ origem: "update", blk })
     );
   }
 
   handleAdd(start, end) {
-    const newBlock = {
+    const novo = {
       id: Date.now(),
       start,
       end,
       title: "Novo Bloqueio",
       status: "bloqueado",
     };
-
     this.setState(
       (prev) => ({
-        events: [...prev.events, newBlock],
-        active: newBlock,
+        events: [...prev.events, novo],
+        active: novo,
       }),
-      () => {
-        this.pushDebug({
-          origem: "handleAdd",
-          novo: {
-            id: newBlock.id,
-            start: start.toISOString(),
-            end: end.toISOString(),
-          },
-        });
-      }
+      () => this.pushDebug({ origem: "add", novo })
     );
   }
 
   handleSelect(blk) {
-    this.setState({ active: blk }, () => {
-      this.pushDebug({
-        origem: "handleSelect",
-        selecionado: {
-          id: blk.id,
-          start: blk.start.toISOString(),
-          end: blk.end.toISOString(),
-        },
-      });
-    });
+    this.setState({ active: blk }, () =>
+      this.pushDebug({ origem: "select", blk })
+    );
   }
-  /* =============================================== */
 
+  /* ——— render ——— */
   render() {
     const { events, active } = this.state;
 
