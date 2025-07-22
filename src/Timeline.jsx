@@ -11,7 +11,7 @@ export default function Timeline({
   onAdd,
   onSelect,
 }) {
-  const dayStart = new Date(active.start);
+  const dayStart = new Date(active?.start || Date.now());
   dayStart.setHours(6, 0, 0, 0);
 
   const [now, setNow] = useState(Date.now());
@@ -20,10 +20,11 @@ export default function Timeline({
     return () => clearInterval(int);
   }, []);
 
-  const [sMin, setS] = useState((active.start - dayStart) / 60000);
-  const [eMin, setE] = useState((active.end - dayStart) / 60000);
+  const [sMin, setS] = useState((active?.start - dayStart) / 60000 || 0);
+  const [eMin, setE] = useState((active?.end - dayStart) / 60000 || SLOT);
 
   useEffect(() => {
+    if (!active) return;
     setS((active.start - dayStart) / 60000);
     setE((active.end - dayStart) / 60000);
   }, [active, dayStart]);
@@ -33,7 +34,7 @@ export default function Timeline({
 
   const clash = (s, e) =>
     bookings
-      .concat(blocks.filter(b => b.id !== active.id))
+      .concat(blocks.filter(b => b.id !== active?.id))
       .some(
         ev =>
           s < (ev.end - dayStart) / 60000 &&
@@ -100,14 +101,13 @@ export default function Timeline({
   };
 
   return (
-    <div className="timeline">
-      <div className="ruler">
+    <div className="timeline" style={{ position: "relative", height: "60px", background: "#f9fafb" }}>
+      <div className="ruler" style={{ position: "absolute", top: -18, width: "100%" }}>
         {["06h00", "10h00", "14h00", "18h00", "22h00"].map((label, i) => (
-          <span key={i} className="ruler-label" style={{
+          <span key={i} style={{
             position: "absolute",
             left: `${i * 25}%`,
             fontSize: "11px",
-            top: "-18px"
           }}>
             {label}
           </span>
@@ -121,10 +121,11 @@ export default function Timeline({
           style={{
             left: `${pct((b.start - dayStart) / 60000)}%`,
             width: `${pct((b.end - b.start) / 60000)}%`,
-            background:
-              b.status === "pendente"
-                ? "linear-gradient(135deg,#fef9c3,#fde68a)"
-                : "linear-gradient(135deg,#bfdbfe,#93c5fd)"
+            position: "absolute",
+            top: 0, bottom: 0,
+            background: b.status === "pendente"
+              ? "linear-gradient(135deg,#fef9c3,#fde68a)"
+              : "linear-gradient(135deg,#bfdbfe,#93c5fd)"
           }}
         />
       ))}
@@ -132,16 +133,17 @@ export default function Timeline({
       {blocks.map(blk => (
         <div
           key={blk.id}
-          className={blk.id === active.id ? "segment block active" : "segment block"}
+          className={blk.id === active?.id ? "segment block active" : "segment block"}
           style={{
             left: `${pct((blk.start - dayStart) / 60000)}%`,
             width: `${pct((blk.end - blk.start) / 60000)}%`,
-            background: "linear-gradient(to right,#fecaca,#fca5a5)",
-            zIndex: blk.id === active.id ? 2 : 1
+            position: "absolute",
+            top: 0, bottom: 0,
+            background: "linear-gradient(to right,#fecaca,#fca5a5)"
           }}
           onClick={() => onSelect(blk)}
         >
-          {blk.id === active.id && (
+          {blk.id === active?.id && (
             <>
               <div className="handle left" onMouseDown={drag("start")}>⋮</div>
               <div className="handle right" onMouseDown={drag("end")}>⋮</div>
@@ -156,7 +158,10 @@ export default function Timeline({
           className="segment free"
           style={{
             left: `${pct(f.from)}%`,
-            width: `${pct(f.to - f.from)}%`
+            width: `${pct(f.to - f.from)}%`,
+            position: "absolute",
+            top: 0, bottom: 0,
+            background: "#a7f3d0"
           }}
           onClick={clickFree(f)}
         />
@@ -165,13 +170,12 @@ export default function Timeline({
       <div
         className="current-time"
         style={{
-          left: `${pct((now - dayStart.getTime()) / 60000)}%`,
-          background: "red",
           position: "absolute",
-          top: 0,
-          bottom: 0,
+          top: 0, bottom: 0,
           width: "2px",
-          zIndex: 10
+          background: "red",
+          zIndex: 10,
+          left: `${Math.max(0, Math.min(100, pct((now - dayStart.getTime()) / 60000)))}%`
         }}
       />
     </div>

@@ -48,7 +48,7 @@ export default class App extends Component {
 
     this.setState({
       events: parsed,
-      active: parsed.find(e => e.status === "bloqueado") || null,
+      active: parsed.find(e => e.status === "bloqueado") || parsed[0] || null,
       pendingAdds: [],
       pendingUpdates: [],
       pendingRemoves: [],
@@ -129,11 +129,15 @@ export default class App extends Component {
 
   handleRemove = blkId => {
     this.setState(
-      prev => ({
-        events: prev.events.filter(e => e.id !== blkId),
-        active: null,
-        pendingRemoves: [...prev.pendingRemoves, blkId],
-      }),
+      prev => {
+        const filtered = prev.events.filter(e => e.id !== blkId);
+        const nextActive = filtered.find(e => e.status === "bloqueado") || filtered[0] || null;
+        return {
+          events: filtered,
+          active: nextActive,
+          pendingRemoves: [...prev.pendingRemoves, blkId],
+        };
+      },
       this.syncToModel
     );
   };
@@ -168,16 +172,14 @@ export default class App extends Component {
           </>
         )}
 
-        {active && (
-          <Timeline
-            bookings={events.filter(e => e.status !== "bloqueado")}
-            blocks={events.filter(e => e.status === "bloqueado")}
-            active={active}
-            onChange={this.handleUpdate}
-            onAdd={this.handleAdd}
-            onSelect={this.handleSelect}
-          />
-        )}
+        <Timeline
+          bookings={events.filter(e => e.status !== "bloqueado")}
+          blocks={events.filter(e => e.status === "bloqueado")}
+          active={active}
+          onChange={this.handleUpdate}
+          onAdd={this.handleAdd}
+          onSelect={this.handleSelect}
+        />
       </div>
     );
   }
