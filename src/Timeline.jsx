@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 const SLOT    = 15;           // minutos por slot
-const DAY_MIN = 16 * 60;      // 6 h → 22 h  = 960 min
+const DAY_MIN = 24 * 60;      // 6 h → 22 h  = 960 min
 
 export default function Timeline({
   bookings = [],
@@ -25,9 +25,9 @@ export default function Timeline({
 
   const refDate = active?.start || earliestEvt || Date.now();
 
-  // começa sempre às 06:00 desse dia
+  // começa sempre às 00:00 desse dia
   const dayStart = new Date(refDate);
-  dayStart.setHours(6, 0, 0, 0);
+  dayStart.setHours(0, 0, 0, 0);
 
   /* ----------------------------------------------------------
      2. ESTADO LOCAL
@@ -138,11 +138,11 @@ export default function Timeline({
   /* ----------------------------------------------------------
      6. RÉGUA (labels a cada 4h)
      ---------------------------------------------------------- */
-  const rulerMarks = Array.from({ length: 5 }, (_, i) => {
-    const hour = 6 + i * 4;
+  const rulerMarks = Array.from({ length: 7 }, (_, i) => {
+    const hour = i * 4;
     return {
       hour,
-      percentage: pct((hour - 6) * 60),
+      percentage: pct(hour * 60),
       label: `${hour.toString().padStart(2, "0")}:00`,
     };
   });
